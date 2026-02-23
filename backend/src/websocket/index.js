@@ -25,129 +25,140 @@
  */
 
 const WebSocket = require("ws");
-const logger = require('../utils/logger');
+const logger = require("../utils/logger");
+
+let globalWssInstance = null;
 
 /**
  * Set up WebSocket server on the existing HTTP server
  */
-const setupWebSocket = (httpServer) => {
-	const wss = new WebSocket.Server({ server: httpServer });
+const setupWebSocket = (wss) => {
+  globalWssInstance = wss;
 
-	// Track connected clients
-	const clients = new Map();
+  // Track connected clients
+  const clients = new Map();
 
-	wss.on("connection", (ws, req) => {
-		const clientId = Date.now().toString(36);
-		clients.set(clientId, { ws, connectedAt: new Date() });
+  wss.on("connection", (ws, req) => {
+    const clientId = Date.now().toString(36);
+    clients.set(clientId, { ws, connectedAt: new Date() });
 
-		logger.info(`WebSocket: Client ${clientId} connected (Total: ${clients.size})`);
+    logger.info(
+      `WebSocket: Client ${clientId} connected (Total: ${clients.size})`,
+    );
 
-		// Send welcome message
-		ws.send(
-			JSON.stringify({
-				type: "connected",
-				data: {
-					clientId,
-					message: "Welcome to the WebSocket server!",
-					timestamp: new Date().toISOString(),
-				},
-			}),
-		);
+    // Send welcome message
+    ws.send(
+      JSON.stringify({
+        type: "connected",
+        data: {
+          clientId,
+          message: "Welcome to the WebSocket server!",
+          timestamp: new Date().toISOString(),
+        },
+      }),
+    );
 
-		// Handle incoming messages
-		ws.on("message", (rawMessage) => {
-			try {
-				const message = JSON.parse(rawMessage.toString());
-				logger.debug(`WebSocket: Message from ${clientId}:`, message);
+    // Handle incoming messages
+    ws.on("message", (rawMessage) => {
+      try {
+        const message = JSON.parse(rawMessage.toString());
+        logger.debug(`WebSocket: Message from ${clientId}:`, message);
 
-				switch (message.type) {
-					case "ping":
-						// Respond to ping with pong
-						ws.send(
-							JSON.stringify({
-								type: "pong",
-								data: { timestamp: new Date().toISOString() },
-							}),
-						);
-						break;
+        switch (message.type) {
+          case "ping":
+            // Respond to ping with pong
+            ws.send(
+              JSON.stringify({
+                type: "pong",
+                data: { timestamp: new Date().toISOString() },
+              }),
+            );
+            break;
 
-					case "chat":
-						// Broadcast chat message to all connected clients
-						broadcast(
-							wss,
-							{
-								type: "chat",
-								data: {
-									from: clientId,
-									message: message.data?.message || "",
-									timestamp: new Date().toISOString(),
-								},
-							},
-							ws,
-						); // Exclude sender
-						break;
+          case "chat":
+            // Broadcast chat message to all connected clients
+            broadcast(
+              wss,
+              {
+                type: "chat",
+                data: {
+                  from: clientId,
+                  message: message.data?.message || "",
+                  timestamp: new Date().toISOString(),
+                },
+              },
+              ws,
+            ); // Exclude sender
+            break;
 
-					case "status":
-						// Return server status
-						ws.send(
-							JSON.stringify({
-								type: "status",
-								data: {
-									connectedClients: clients.size,
-									uptime: process.uptime(),
-									timestamp: new Date().toISOString(),
-								},
-							}),
-						);
-						break;
+          case "status":
+            // Return server status
+            ws.send(
+              JSON.stringify({
+                type: "status",
+                data: {
+                  connectedClients: clients.size,
+                  uptime: process.uptime(),
+                  timestamp: new Date().toISOString(),
+                },
+              }),
+            );
+            break;
 
-					default:
-						ws.send(
-							JSON.stringify({
-								type: "error",
-								data: {
-									message: `Unknown message type: ${message.type}`,
-									validTypes: ["ping", "chat", "status"],
-								},
-							}),
-						);
-				}
-			} catch (error) {
-				ws.send(
-					JSON.stringify({
-						type: "error",
-						data: { message: "Invalid JSON message" },
-					}),
-				);
-			}
-		});
+          default:
+            ws.send(
+              JSON.stringify({
+                type: "error",
+                data: {
+                  message: `Unknown message type: ${message.type}`,
+                  validTypes: ["ping", "chat", "status"],
+                },
+              }),
+            );
+        }
+      } catch (error) {
+        ws.send(
+          JSON.stringify({
+            type: "error",
+            data: { message: "Invalid JSON message" },
+          }),
+        );
+      }
+    });
 
-		// Handle disconnection
-		ws.on("close", () => {
-			clients.delete(clientId);
-			logger.info(`WebSocket: Client ${clientId} disconnected (Total: ${clients.size})`);
-		});
+    // Handle disconnection
+    ws.on("close", () => {
+      clients.delete(clientId);
+      logger.info(
+        `WebSocket: Client ${clientId} disconnected (Total: ${clients.size})`,
+      );
+    });
 
-		// Handle errors
-		ws.on("error", (error) => {
-			logger.error(`WebSocket: Client ${clientId} error:`, error);
-			clients.delete(clientId);
-		});
-	});
+    // Handle errors
+    ws.on("error", (error) => {
+      logger.error(`WebSocket: Client ${clientId} error:`, error);
+      clients.delete(clientId);
+    });
+  });
 
-	return wss;
+  return wss;
 };
 
 /**
  * Broadcast a message to all connected clients (optionally excluding one)
  */
 const broadcast = (wss, message, excludeWs = null) => {
-	const data = JSON.stringify(message);
-	wss.clients.forEach((client) => {
-		if (client !== excludeWs && client.readyState === WebSocket.OPEN) {
-			client.send(data);
-		}
-	});
+  const data = JSON.stringify(message);
+  wss.clients.forEach((client) => {
+    if (client !== excludeWs && client.readyState === WebSocket.OPEN) {
+      client.send(data);
+    }
+  });
 };
 
-module.exports = { setupWebSocket };
+const broadcastNotification = (message) => {
+  if (!globalWssInstance) return;
+  broadcast(globalWssInstance, message);
+};
+
+module.exports = { setupWebSocket, broadcastNotification };

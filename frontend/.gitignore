@@ -12,6 +12,7 @@ dist
 dist-ssr
 *.local
 .gemini/*
+.agent/*
 
 # Editor directories and files
 .vscode/*

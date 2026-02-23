@@ -3,149 +3,165 @@ import { gql } from "@apollo/client";
 /* ── Auth ──────────────────────────────────── */
 
 export const LOGIN_MUTATION = gql`
-	mutation Login($email: String!, $password: String!) {
-		login(email: $email, password: $password) {
-			token
-			user {
-				id
-				username
-				email
-				firstName
-				lastName
-				role
-			}
-		}
-	}
+  mutation Login($email: String!, $password: String!) {
+    login(email: $email, password: $password) {
+      token
+      user {
+        id
+        username
+        email
+        firstName
+        lastName
+        role
+      }
+    }
+  }
 `;
 
 export const REGISTER_MUTATION = gql`
-	mutation Register($input: CreateUserInput!) {
-		createUser(input: $input) {
-			id
-			username
-			email
-		}
-	}
+  mutation Register($input: CreateUserInput!) {
+    createUser(input: $input) {
+      id
+      username
+      email
+    }
+  }
 `;
 
 export const GET_ME = gql`
-	query GetMe {
-		me {
-			id
-			username
-			email
-			firstName
-			lastName
-			role
-			createdAt
-		}
-	}
+  query GetMe {
+    me {
+      id
+      username
+      email
+      firstName
+      lastName
+      role
+      createdAt
+    }
+  }
 `;
 
 /* ── Posts ─────────────────────────────────── */
 
 export const GET_POSTS = gql`
-	query GetPosts($filter: PostListFilter) {
-		posts(filter: $filter) {
-			posts {
-				id
-				title
-				content
-				slug
-				status
-				tags
-				viewCount
-				createdAt
-				author {
-					id
-					username
-					firstName
-					lastName
-				}
-			}
-			pagination {
-				total
-				page
-				limit
-				totalPages
-				hasNextPage
-				hasPrevPage
-			}
-		}
-	}
+  query GetPosts($filter: PostListFilter) {
+    posts(filter: $filter) {
+      posts {
+        id
+        title
+        content
+        slug
+        status
+        tags
+        coverImage
+        viewCount
+        createdAt
+        author {
+          id
+          username
+          firstName
+          lastName
+        }
+      }
+      pagination {
+        total
+        page
+        limit
+        totalPages
+        hasNextPage
+        hasPrevPage
+      }
+    }
+  }
 `;
 
 export const GET_POST = gql`
-	query GetPost($id: ID!) {
-		post(id: $id) {
-			id
-			title
-			content
-			slug
-			status
-			tags
-			viewCount
-			createdAt
-			updatedAt
-			author {
-				id
-				username
-				firstName
-				lastName
-			}
-		}
-	}
+  query GetPost($id: ID!) {
+    post(id: $id) {
+      id
+      title
+      content
+      slug
+      status
+      tags
+      coverImage
+      viewCount
+      createdAt
+      updatedAt
+      author {
+        id
+        username
+        firstName
+        lastName
+      }
+    }
+  }
 `;
 
 export const CREATE_POST = gql`
-	mutation CreatePost($input: CreatePostInput!) {
-		createPost(input: $input) {
-			id
-			title
-			slug
-			status
-		}
-	}
+  mutation CreatePost($input: CreatePostInput!) {
+    createPost(input: $input) {
+      id
+      title
+      slug
+      status
+      coverImage
+    }
+  }
 `;
 
 export const INCREMENT_VIEW_COUNT = gql`
-	mutation IncrementViewCount($id: ID!) {
-		incrementViewCount(id: $id) {
-			id
-			viewCount
-		}
-	}
+  mutation IncrementViewCount($id: ID!) {
+    incrementViewCount(id: $id) {
+      id
+      viewCount
+    }
+  }
 `;
 
 /* ── Users ─────────────────────────────────── */
 
 export const GET_USERS = gql`
-	query GetUsers($filter: UserListFilter) {
-		users(filter: $filter) {
-			users {
-				id
-				username
-				email
-				firstName
-				lastName
-				role
-				isActive
-				createdAt
-			}
-			pagination {
-				total
-				page
-				limit
-				totalPages
-			}
-		}
-	}
+  query GetUsers($filter: UserListFilter) {
+    users(filter: $filter) {
+      users {
+        id
+        username
+        email
+        firstName
+        lastName
+        role
+        isActive
+        createdAt
+      }
+      pagination {
+        total
+        page
+        limit
+        totalPages
+      }
+    }
+  }
 `;
 
 /* ── Subscriptions ─────────────────────────── */
 
 export const CURRENT_TIME_SUBSCRIPTION = gql`
-	subscription CurrentTime {
-		currentTime
-	}
+  subscription CurrentTime {
+    currentTime
+  }
+`;
+
+export const GET_SYSTEM_INFO = gql`
+  query GetSystemInfo {
+    system {
+      platform
+      arch
+      cpus
+      totalMemMB
+      freeMemMB
+      uptimeSeconds
+    }
+  }
 `;

@@ -93,6 +93,19 @@ The system uses a heavily decoupled client-server architecture. GraphQL allows t
 
 ---
 
+## ✨ Features Showcasing Node.js Capabilities
+
+To demonstrate the power and flexibility of Node.js along with Apollo GraphQL, the application implements the following features out-of-the-box:
+
+1. **Base64 Image Upload:**
+   Native image upload mapped directly within GraphQL Queries and Mutations. The backend stores the base64 string directly via the database, showcasing how Node.js streams and handles payload transmission.
+2. **Cron Job Real-Time Notifications:**
+   The backend utilizes `node-cron` combined with native WebSockets (`ws`) to push real-time toast notifications directly to the frontend every minute without polling.
+3. **Core `os` Module Integration:**
+   Native use of the Node.js Operating System (`os`) core library exposed via the `system` GraphQL Query, broadcasting active metrics like CPU core count, available memory, and instance uptime directly onto the application's Home Page.
+
+---
+
 ## 🔮 Exploring GraphQL Fundamentals
 
 ### Writing a Query (Reading Data)
@@ -101,13 +114,13 @@ Instead of pinging multiple REST endpoints, ask for precisely what you need:
 
 ```graphql
 query GetPosts {
-	posts(filter: { limit: 10, sortBy: "createdAt" }) {
-		posts {
-			id
-			title
-			viewCount
-		}
-	}
+  posts(filter: { limit: 10, sortBy: "createdAt" }) {
+    posts {
+      id
+      title
+      viewCount
+    }
+  }
 }
 ```
 
@@ -117,11 +130,11 @@ Mutations correspond to `POST`/`PUT`/`DELETE` calls in REST.
 
 ```graphql
 mutation CreateNewPost($input: CreatePostInput!) {
-	createPost(input: $input) {
-		id
-		title
-		status
-	}
+  createPost(input: $input) {
+    id
+    title
+    status
+  }
 }
 ```
 

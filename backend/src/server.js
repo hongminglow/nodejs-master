@@ -38,88 +38,95 @@ const { useServer } = require("graphql-ws/use/ws");
  * - Start listening for HTTP requests
  */
 async function startServer() {
-	try {
-		// ── Step 1: Connect to Database ──────────────
-		await sequelize.authenticate();
-		logger.info("✅ Database connection established");
+  try {
+    // ── Step 1: Connect to Database ──────────────
+    await sequelize.authenticate();
+    logger.info("✅ Database connection established");
 
-		// Sync models to database (creates tables if they don't exist)
-		// Altering tables in SQLite often drops them and causes data loss!
-		await sequelize.sync({ force: false });
-		logger.info("✅ Database models synchronized");
+    // Sync models to database (creates tables if they don't exist)
+    // Altering tables in SQLite often drops them and causes data loss!
+    await sequelize.sync({ force: false });
+    logger.info("✅ Database models synchronized");
 
-		// ── Step 2: Create HTTP Server ───────────────
-		const httpServer = http.createServer(app);
+    // ── Step 2: Create HTTP Server ───────────────
+    const httpServer = http.createServer(app);
 
-		// ── Step 3: Set up Apollo GraphQL Server ─────
-		const schema = makeExecutableSchema({ typeDefs, resolvers });
+    // ── Step 3: Set up Apollo GraphQL Server ─────
+    const schema = makeExecutableSchema({ typeDefs, resolvers });
 
-		// GraphQL Subscriptions Server
-		const wsServer = new WebSocketServer({
-			server: httpServer,
-			path: "/graphql",
-		});
-		const serverCleanup = useServer({ schema }, wsServer);
+    // GraphQL Subscriptions Server
+    const wsServer = new WebSocketServer({
+      noServer: true,
+    });
+    const serverCleanup = useServer({ schema }, wsServer);
 
-		const apolloServer = new ApolloServer({
-			schema,
-			plugins: [
-				{
-					async serverWillStart() {
-						return {
-							async drainServer() {
-								await serverCleanup.dispose();
-							},
-						};
-					},
-				},
-			],
-			formatError: (error) => {
-				logger.error("GraphQL Error:", error);
-				return {
-					message: error.message,
-					code: error.extensions?.code || "INTERNAL_SERVER_ERROR",
-					path: error.path,
-				};
-			},
-		});
+    const apolloServer = new ApolloServer({
+      schema,
+      plugins: [
+        {
+          async serverWillStart() {
+            return {
+              async drainServer() {
+                await serverCleanup.dispose();
+              },
+            };
+          },
+        },
+      ],
+      formatError: (error) => {
+        logger.error("GraphQL Error:", error);
+        return {
+          message: error.message,
+          code: error.extensions?.code || "INTERNAL_SERVER_ERROR",
+          path: error.path,
+        };
+      },
+    });
 
-		await apolloServer.start();
-		logger.info("✅ Apollo GraphQL server started with Subscriptions capability");
+    await apolloServer.start();
+    logger.info(
+      "✅ Apollo GraphQL server started with Subscriptions capability",
+    );
 
-		// Mount GraphQL HTTP
-		app.use(
-			"/graphql",
-			expressMiddleware(apolloServer, {
-				context: authContext,
-			}),
-		);
+    // Mount GraphQL HTTP
+    app.use(
+      "/graphql",
+      expressMiddleware(apolloServer, {
+        context: authContext,
+      }),
+    );
 
-		// Register 404 and error handlers AFTER GraphQL is mounted
-		finalizeMiddleware();
+    // Register 404 and error handlers AFTER GraphQL is mounted
+    finalizeMiddleware();
 
-		// ── Step 4: Set up General WebSockets ────────
-		const rawWsServer = new WebSocketServer({ noServer: true });
-		setupWebSocket(rawWsServer);
+    // ── Step 4: Set up General WebSockets ────────
+    const rawWsServer = new WebSocketServer({ noServer: true });
+    setupWebSocket(rawWsServer);
 
-		httpServer.on("upgrade", (request, socket, head) => {
-			if (request.url === "/") {
-				// non-graphql path
-				rawWsServer.handleUpgrade(request, socket, head, (ws) => {
-					rawWsServer.emit("connection", ws, request);
-				});
-			} // GraphQL WS handles itself internally by matching /graphql
-		});
+    httpServer.on("upgrade", (request, socket, head) => {
+      if (request.url === "/graphql") {
+        wsServer.handleUpgrade(request, socket, head, (ws) => {
+          wsServer.emit("connection", ws, request);
+        });
+      } else if (request.url === "/") {
+        // non-graphql path
+        rawWsServer.handleUpgrade(request, socket, head, (ws) => {
+          rawWsServer.emit("connection", ws, request);
+        });
+      } else {
+        socket.destroy();
+      }
+    });
 
-		logger.info("✅ Standard WebSocket server initialized on /");
+    logger.info("✅ Standard WebSocket server initialized on /");
 
-		// ── Step 5: Start Scheduler ──────────────────
-		startScheduler();
-		logger.info("✅ Job scheduler started");
+    // ── Step 5: Start Scheduler ──────────────────
+    startScheduler();
+    logger.info("✅ Job scheduler started");
 
-		// ── Step 6: Start Listening ──────────────────
-		httpServer.listen(config.server.port, () => {
-			logger.info(`
+    // ── Step 6: Start Listening ──────────────────
+    httpServer.listen(config.server.port, () => {
+      logger.info(`
 ╔══════════════════════════════════════════════╗
 ║       🚀 Node.js Master Server              ║
 ╠══════════════════════════════════════════════╣
@@ -130,24 +137,24 @@ async function startServer() {
 ║  Environment: ${config.server.env.padEnd(30)}║
 ╚══════════════════════════════════════════════╝
       `);
-		});
+    });
 
-		// ── Graceful Shutdown ────────────────────────
-		const shutdown = async (signal) => {
-			logger.info(`\n${signal} received — shutting down gracefully...`);
-			httpServer.close(async () => {
-				await sequelize.close();
-				logger.info("👋 Server closed. Goodbye!");
-				process.exit(0);
-			});
-		};
+    // ── Graceful Shutdown ────────────────────────
+    const shutdown = async (signal) => {
+      logger.info(`\n${signal} received — shutting down gracefully...`);
+      httpServer.close(async () => {
+        await sequelize.close();
+        logger.info("👋 Server closed. Goodbye!");
+        process.exit(0);
+      });
+    };
 
-		process.on("SIGTERM", () => shutdown("SIGTERM"));
-		process.on("SIGINT", () => shutdown("SIGINT"));
-	} catch (error) {
-		logger.error("❌ Failed to start server:", error);
-		process.exit(1);
-	}
+    process.on("SIGTERM", () => shutdown("SIGTERM"));
+    process.on("SIGINT", () => shutdown("SIGINT"));
+  } catch (error) {
+    logger.error("❌ Failed to start server:", error);
+    process.exit(1);
+  }
 }
 
 // ── Launch ──────────────────────────────────────

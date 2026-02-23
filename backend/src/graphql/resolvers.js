@@ -27,6 +27,7 @@
  */
 
 const { GraphQLError } = require("graphql");
+const os = require("os");
 const userService = require("../services/user.service");
 const postService = require("../services/post.service");
 
@@ -34,296 +35,310 @@ const postService = require("../services/post.service");
  * Helper to ensure the user is authenticated
  */
 const requireAuthentication = (context) => {
-	if (!context.user) {
-		throw new GraphQLError("You must be logged in", {
-			extensions: { code: "UNAUTHENTICATED" },
-		});
-	}
-	return context.user;
+  if (!context.user) {
+    throw new GraphQLError("You must be logged in", {
+      extensions: { code: "UNAUTHENTICATED" },
+    });
+  }
+  return context.user;
 };
 
 const resolvers = {
-	// ════════════════════════════════════════════════
-	// QUERY RESOLVERS — Handle all "read" operations
-	// ════════════════════════════════════════════════
+  // ════════════════════════════════════════════════
+  // QUERY RESOLVERS — Handle all "read" operations
+  // ════════════════════════════════════════════════
 
-	Query: {
-		/**
-		 * Get paginated list of users
-		 *
-		 * Example query:
-		 *   query {
-		 *     users(filter: { page: 1, limit: 5, search: "john" }) {
-		 *       users { id username email }
-		 *       pagination { total totalPages }
-		 *     }
-		 *   }
-		 */
-		users: async (_parent, { filter = {} }, context) => {
-			requireAuthentication(context);
-			const { users, total, page, limit } = await userService.listUsers(filter);
-			return {
-				users,
-				pagination: {
-					total,
-					page,
-					limit,
-					totalPages: Math.ceil(total / limit),
-					hasNextPage: page * limit < total,
-					hasPrevPage: page > 1,
-				},
-			};
-		},
+  Query: {
+    /**
+     * Get paginated list of users
+     *
+     * Example query:
+     *   query {
+     *     users(filter: { page: 1, limit: 5, search: "john" }) {
+     *       users { id username email }
+     *       pagination { total totalPages }
+     *     }
+     *   }
+     */
+    users: async (_parent, { filter = {} }, context) => {
+      requireAuthentication(context);
+      const { users, total, page, limit } = await userService.listUsers(filter);
+      return {
+        users,
+        pagination: {
+          total,
+          page,
+          limit,
+          totalPages: Math.ceil(total / limit),
+          hasNextPage: page * limit < total,
+          hasPrevPage: page > 1,
+        },
+      };
+    },
 
-		/**
-		 * Get a single user by ID
-		 *
-		 * Example query:
-		 *   query {
-		 *     user(id: "uuid-here") {
-		 *       id username email firstName lastName
-		 *       posts { id title status }
-		 *     }
-		 *   }
-		 */
-		user: async (_parent, { id }) => {
-			return userService.getUserById(id);
-		},
+    /**
+     * Get a single user by ID
+     *
+     * Example query:
+     *   query {
+     *     user(id: "uuid-here") {
+     *       id username email firstName lastName
+     *       posts { id title status }
+     *     }
+     *   }
+     */
+    user: async (_parent, { id }) => {
+      return userService.getUserById(id);
+    },
 
-		/**
-		 * Get the currently authenticated user
-		 *
-		 * Example query:
-		 *   query {
-		 *     me { id username email role }
-		 *   }
-		 */
-		me: async (_parent, _args, context) => {
-			const user = requireAuthentication(context);
-			return userService.getUserById(user.id);
-		},
+    /**
+     * Get the currently authenticated user
+     *
+     * Example query:
+     *   query {
+     *     me { id username email role }
+     *   }
+     */
+    me: async (_parent, _args, context) => {
+      const user = requireAuthentication(context);
+      return userService.getUserById(user.id);
+    },
 
-		/**
-		 * Get paginated list of posts
-		 *
-		 * Example query:
-		 *   query {
-		 *     posts(filter: { status: published, limit: 10 }) {
-		 *       posts {
-		 *         id title content
-		 *         author { username }
-		 *       }
-		 *       pagination { total }
-		 *     }
-		 *   }
-		 */
-		posts: async (_parent, { filter = {} }) => {
-			const { posts, total, page, limit } = await postService.listPosts(filter);
-			return {
-				posts,
-				pagination: {
-					total,
-					page,
-					limit,
-					totalPages: Math.ceil(total / limit),
-					hasNextPage: page * limit < total,
-					hasPrevPage: page > 1,
-				},
-			};
-		},
+    /**
+     * Get paginated list of posts
+     *
+     * Example query:
+     *   query {
+     *     posts(filter: { status: published, limit: 10 }) {
+     *       posts {
+     *         id title content
+     *         author { username }
+     *       }
+     *       pagination { total }
+     *     }
+     *   }
+     */
+    posts: async (_parent, { filter = {} }) => {
+      const { posts, total, page, limit } = await postService.listPosts(filter);
+      return {
+        posts,
+        pagination: {
+          total,
+          page,
+          limit,
+          totalPages: Math.ceil(total / limit),
+          hasNextPage: page * limit < total,
+          hasPrevPage: page > 1,
+        },
+      };
+    },
 
-		/**
-		 * Get a single post by ID
-		 *
-		 * Example query:
-		 *   query {
-		 *     post(id: "uuid-here") {
-		 *       title content tags
-		 *       author { username email }
-		 *     }
-		 *   }
-		 */
-		post: async (_parent, { id }) => {
-			return postService.getPostById(id);
-		},
-	},
+    /**
+     * Get a single post by ID
+     *
+     * Example query:
+     *   query {
+     *     post(id: "uuid-here") {
+     *       title content tags
+     *       author { username email }
+     *     }
+     *   }
+     */
+    post: async (_parent, { id }) => {
+      return postService.getPostById(id);
+    },
 
-	// ════════════════════════════════════════════════
-	// MUTATION RESOLVERS — Handle all "write" operations
-	// ════════════════════════════════════════════════
+    /**
+     * Get system info (OS module integration)
+     */
+    system: async () => {
+      return {
+        platform: os.platform(),
+        arch: os.arch(),
+        cpus: os.cpus().length,
+        totalMemMB: os.totalmem() / (1024 * 1024),
+        freeMemMB: os.freemem() / (1024 * 1024),
+        uptimeSeconds: process.uptime(),
+      };
+    },
+  },
 
-	Mutation: {
-		/**
-		 * Create a new user
-		 *
-		 * Example mutation:
-		 *   mutation {
-		 *     createUser(input: {
-		 *       username: "newuser"
-		 *       email: "new@example.com"
-		 *       password: "secret123"
-		 *       firstName: "New"
-		 *     }) {
-		 *       id username email
-		 *     }
-		 *   }
-		 */
-		createUser: async (_parent, { input }) => {
-			return userService.createUser(input);
-		},
+  // ════════════════════════════════════════════════
+  // MUTATION RESOLVERS — Handle all "write" operations
+  // ════════════════════════════════════════════════
 
-		/**
-		 * Update an existing user
-		 *
-		 * Example mutation:
-		 *   mutation {
-		 *     updateUser(id: "uuid", input: { firstName: "Updated" }) {
-		 *       id firstName
-		 *     }
-		 *   }
-		 */
-		updateUser: async (_parent, { id, input }, context) => {
-			requireAuthentication(context);
-			return userService.updateUser(id, input);
-		},
+  Mutation: {
+    /**
+     * Create a new user
+     *
+     * Example mutation:
+     *   mutation {
+     *     createUser(input: {
+     *       username: "newuser"
+     *       email: "new@example.com"
+     *       password: "secret123"
+     *       firstName: "New"
+     *     }) {
+     *       id username email
+     *     }
+     *   }
+     */
+    createUser: async (_parent, { input }) => {
+      return userService.createUser(input);
+    },
 
-		/**
-		 * Delete a user
-		 *
-		 * Example mutation:
-		 *   mutation {
-		 *     deleteUser(id: "uuid") {
-		 *       message id
-		 *     }
-		 *   }
-		 */
-		deleteUser: async (_parent, { id }, context) => {
-			requireAuthentication(context);
-			return userService.deleteUser(id);
-		},
+    /**
+     * Update an existing user
+     *
+     * Example mutation:
+     *   mutation {
+     *     updateUser(id: "uuid", input: { firstName: "Updated" }) {
+     *       id firstName
+     *     }
+     *   }
+     */
+    updateUser: async (_parent, { id, input }, context) => {
+      requireAuthentication(context);
+      return userService.updateUser(id, input);
+    },
 
-		/**
-		 * Login and receive a JWT token
-		 *
-		 * Example mutation:
-		 *   mutation {
-		 *     login(email: "john@example.com", password: "password123") {
-		 *       token
-		 *       user { id username role }
-		 *     }
-		 *   }
-		 */
-		login: async (_parent, { email, password }) => {
-			return userService.login(email, password);
-		},
+    /**
+     * Delete a user
+     *
+     * Example mutation:
+     *   mutation {
+     *     deleteUser(id: "uuid") {
+     *       message id
+     *     }
+     *   }
+     */
+    deleteUser: async (_parent, { id }, context) => {
+      requireAuthentication(context);
+      return userService.deleteUser(id);
+    },
 
-		/**
-		 * Create a new post
-		 *
-		 * Example mutation (requires auth header):
-		 *   mutation {
-		 *     createPost(input: {
-		 *       title: "My First Post"
-		 *       content: "Hello, world!"
-		 *       status: published
-		 *       tags: ["hello", "first"]
-		 *     }) {
-		 *       id title slug
-		 *       author { username }
-		 *     }
-		 *   }
-		 */
-		createPost: async (_parent, { input }, context) => {
-			const user = requireAuthentication(context);
-			return postService.createPost(input, user.id);
-		},
+    /**
+     * Login and receive a JWT token
+     *
+     * Example mutation:
+     *   mutation {
+     *     login(email: "john@example.com", password: "password123") {
+     *       token
+     *       user { id username role }
+     *     }
+     *   }
+     */
+    login: async (_parent, { email, password }) => {
+      return userService.login(email, password);
+    },
 
-		/**
-		 * Update a post
-		 */
-		updatePost: async (_parent, { id, input }, context) => {
-			const user = requireAuthentication(context);
-			return postService.updatePost(id, input, user.id);
-		},
+    /**
+     * Create a new post
+     *
+     * Example mutation (requires auth header):
+     *   mutation {
+     *     createPost(input: {
+     *       title: "My First Post"
+     *       content: "Hello, world!"
+     *       status: published
+     *       tags: ["hello", "first"]
+     *     }) {
+     *       id title slug
+     *       author { username }
+     *     }
+     *   }
+     */
+    createPost: async (_parent, { input }, context) => {
+      const user = requireAuthentication(context);
+      return postService.createPost(input, user.id);
+    },
 
-		/**
-		 * Delete a post
-		 */
-		deletePost: async (_parent, { id }, context) => {
-			const user = requireAuthentication(context);
-			return postService.deletePost(id, user.id);
-		},
+    /**
+     * Update a post
+     */
+    updatePost: async (_parent, { id, input }, context) => {
+      const user = requireAuthentication(context);
+      return postService.updatePost(id, input, user.id);
+    },
 
-		/**
-		 * Increment a post's view count
-		 */
-		incrementViewCount: async (_parent, { id }) => {
-			return postService.incrementViewCount(id);
-		},
-	},
+    /**
+     * Delete a post
+     */
+    deletePost: async (_parent, { id }, context) => {
+      const user = requireAuthentication(context);
+      return postService.deletePost(id, user.id);
+    },
 
-	Subscription: {
-		/**
-		 * WebSockets Real-time pushing timer!
-		 */
-		currentTime: {
-			subscribe: async function* () {
-				for (let i = 0; i < 1000; i++) {
-					await new Promise((resolve) => setTimeout(resolve, 1000));
-					yield { currentTime: new Date().toISOString() };
-				}
-			},
-		},
-	},
+    /**
+     * Increment a post's view count
+     */
+    incrementViewCount: async (_parent, { id }) => {
+      return postService.incrementViewCount(id);
+    },
+  },
 
-	// ════════════════════════════════════════════════
-	// FIELD RESOLVERS — Resolve nested/computed fields
-	// ════════════════════════════════════════════════
+  Subscription: {
+    /**
+     * WebSockets Real-time pushing timer!
+     */
+    currentTime: {
+      subscribe: async function* () {
+        for (let i = 0; i < 1000; i++) {
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+          yield { currentTime: new Date().toISOString() };
+        }
+      },
+    },
+  },
 
-	/**
-	 * 📚 LEARNING NOTES:
-	 * Field resolvers run when a specific field is requested.
-	 * They receive the "parent" object as the first argument.
-	 *
-	 * For example, when a client queries:
-	 *   query { user(id: "...") { posts { title } } }
-	 *
-	 * 1. Query.user resolves the user
-	 * 2. User.posts resolves the posts for that user
-	 *
-	 * This is how GraphQL handles relationships!
-	 */
-	User: {
-		posts: async (parent) => {
-			// parent is the User object from the parent resolver
-			// If posts are already included (eager loaded), return them
-			if (parent.posts) return parent.posts;
+  // ════════════════════════════════════════════════
+  // FIELD RESOLVERS — Resolve nested/computed fields
+  // ════════════════════════════════════════════════
 
-			// Otherwise, lazy load them
-			const { Post } = require("../database/models");
-			return Post.findAll({
-				where: { authorId: parent.id },
-				order: [["createdAt", "DESC"]],
-			});
-		},
-	},
+  /**
+   * 📚 LEARNING NOTES:
+   * Field resolvers run when a specific field is requested.
+   * They receive the "parent" object as the first argument.
+   *
+   * For example, when a client queries:
+   *   query { user(id: "...") { posts { title } } }
+   *
+   * 1. Query.user resolves the user
+   * 2. User.posts resolves the posts for that user
+   *
+   * This is how GraphQL handles relationships!
+   */
+  User: {
+    posts: async (parent) => {
+      // parent is the User object from the parent resolver
+      // If posts are already included (eager loaded), return them
+      if (parent.posts) return parent.posts;
 
-	Post: {
-		author: async (parent) => {
-			if (parent.author) return parent.author;
-			const { User } = require("../database/models");
-			return User.findByPk(parent.authorId);
-		},
-		// Convert tags from JSON string to array (if needed)
-		tags: (parent) => {
-			if (Array.isArray(parent.tags)) return parent.tags;
-			try {
-				return JSON.parse(parent.tags || "[]");
-			} catch {
-				return [];
-			}
-		},
-	},
+      // Otherwise, lazy load them
+      const { Post } = require("../database/models");
+      return Post.findAll({
+        where: { authorId: parent.id },
+        order: [["createdAt", "DESC"]],
+      });
+    },
+  },
+
+  Post: {
+    author: async (parent) => {
+      if (parent.author) return parent.author;
+      const { User } = require("../database/models");
+      return User.findByPk(parent.authorId);
+    },
+    // Convert tags from JSON string to array (if needed)
+    tags: (parent) => {
+      if (Array.isArray(parent.tags)) return parent.tags;
+      try {
+        return JSON.parse(parent.tags || "[]");
+      } catch {
+        return [];
+      }
+    },
+  },
 };
 
 module.exports = resolvers;

@@ -31,42 +31,58 @@
  *   - Database maintenance
  */
 
-const cron = require('node-cron');
-const logger = require('../utils/logger');
+const cron = require("node-cron");
+const logger = require("../utils/logger");
+const { broadcastNotification } = require("../websocket");
 
 const startScheduler = () => {
   // ── Job 1: Health Heartbeat — every 5 minutes ──
-  cron.schedule('*/5 * * * *', () => {
+  cron.schedule("*/5 * * * *", () => {
     const memUsage = process.memoryUsage();
-    logger.debug('💓 Heartbeat — Server is running', {
+    logger.debug("💓 Heartbeat — Server is running", {
       uptime: `${Math.round(process.uptime())}s`,
       memoryMB: Math.round(memUsage.heapUsed / 1024 / 1024),
     });
   });
 
   // ── Job 2: Log cleanup — every day at 2:00 AM ──
-  cron.schedule('0 2 * * *', async () => {
-    logger.info('🧹 Running daily log cleanup task...');
+  cron.schedule("0 2 * * *", async () => {
+    logger.info("🧹 Running daily log cleanup task...");
     // In a real app, you would:
     // - Delete old log files
     // - Clean up expired sessions
     // - Archive old records
-    logger.info('✅ Daily cleanup completed');
+    logger.info("✅ Daily cleanup completed");
   });
 
   // ── Job 3: Database stats — every hour ──────────
-  cron.schedule('0 * * * *', async () => {
+  cron.schedule("0 * * * *", async () => {
     try {
-      const { User, Post } = require('../database/models');
+      const { User, Post } = require("../database/models");
       const userCount = await User.count();
       const postCount = await Post.count();
-      logger.info(`📊 Database stats — Users: ${userCount}, Posts: ${postCount}`);
+      logger.info(
+        `📊 Database stats — Users: ${userCount}, Posts: ${postCount}`,
+      );
     } catch (error) {
-      logger.error('Failed to collect database stats:', error);
+      logger.error("Failed to collect database stats:", error);
     }
   });
 
-  logger.info('📅 Scheduled jobs registered');
+  // ── Job 4: Scheduled Notification / Toast ────────
+  cron.schedule("*/1 * * * *", () => {
+    logger.info("🔔 Sending scheduled cron notification");
+    broadcastNotification({
+      type: "cron_notification",
+      data: {
+        message:
+          "System Check: All Node.js backend services are operating nominally.",
+        timestamp: new Date().toISOString(),
+      },
+    });
+  });
+
+  logger.info("📅 Scheduled jobs registered");
 };
 
 module.exports = { startScheduler };
