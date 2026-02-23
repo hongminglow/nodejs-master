@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate, Navigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { BookOpen, Mail, Lock, ArrowRight, AlertCircle } from "lucide-react";
+import { GraduationCap, Mail, Lock, ArrowRight, AlertCircle } from "lucide-react";
 
 export default function LoginPage() {
 	const { login, isAuthenticated, isLoading } = useAuth();
@@ -38,7 +38,7 @@ export default function LoginPage() {
 				{/* Header */}
 				<div className="text-center mb-10">
 					<div className="w-12 h-12 rounded-2xl bg-surface-900 border border-surface-800 flex items-center justify-center mx-auto mb-6 shadow-xl">
-						<BookOpen className="w-6 h-6 text-brand-400" />
+						<GraduationCap className="w-6 h-6 text-green-500" strokeWidth={2} />
 					</div>
 					<h1 className="text-3xl font-bold text-surface-50 tracking-tight mb-2">Welcome Back</h1>
 					<p className="text-surface-400">Enter your credentials to access the dashboard</p>

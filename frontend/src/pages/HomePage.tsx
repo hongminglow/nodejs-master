@@ -1,16 +1,17 @@
 import { useQuery } from "@apollo/client/react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { GET_POSTS } from "../graphql/queries";
 import PostCard from "../components/PostCard";
 import StatsCard from "../components/StatsCard";
-import { FileText, Users, Eye, TrendingUp, RefreshCw } from "lucide-react";
+import { FileText, Users, Eye, TrendingUp, RefreshCw, Plus } from "lucide-react";
+import type { Post, PostsDataResponse } from "../types";
 
 export default function HomePage() {
 	const { user } = useAuth();
 	const navigate = useNavigate();
 
-	const { data, loading, error, refetch } = useQuery(GET_POSTS, {
+	const { data, loading, error, refetch } = useQuery<PostsDataResponse>(GET_POSTS, {
 		variables: {
 			filter: { limit: 20, sortBy: "createdAt", sortOrder: "desc" },
 		},
@@ -20,9 +21,9 @@ export default function HomePage() {
 	const pagination = data?.posts?.pagination;
 
 	// Calculate stats
-	const totalViews = posts.reduce((sum: number, p: { viewCount: number }) => sum + p.viewCount, 0);
-	const publishedCount = posts.filter((p: { status: string }) => p.status === "published").length;
-	const uniqueAuthors = new Set(posts.map((p: { author: { id: string } }) => p.author.id)).size;
+	const totalViews = posts.reduce((sum, p) => sum + p.viewCount, 0);
+	const publishedCount = posts.filter((p) => p.status === "published").length;
+	const uniqueAuthors = new Set(posts.map((p) => p.author.id)).size;
 
 	return (
 		<div className="space-y-8 animate-fade-in">
@@ -37,13 +38,22 @@ export default function HomePage() {
 					</h1>
 					<p className="text-surface-400 mt-1">Here's what's happening with your blog posts</p>
 				</div>
-				<button
-					onClick={() => refetch()}
-					className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-surface-800/50 border border-surface-700/50 text-sm font-medium text-surface-300 hover:text-surface-100 hover:bg-surface-800 transition-colors duration-200 cursor-pointer"
-				>
-					<RefreshCw className="w-4 h-4" />
-					Refresh
-				</button>
+				<div className="flex items-center gap-3">
+					<button
+						onClick={() => refetch()}
+						className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-surface-800/50 border border-surface-700/50 text-sm font-medium text-surface-300 hover:text-surface-100 hover:bg-surface-800 transition-colors duration-200 cursor-pointer"
+					>
+						<RefreshCw className="w-4 h-4" />
+						<span className="hidden sm:inline">Refresh</span>
+					</button>
+					<Link
+						to="/create-post"
+						className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand-500 text-surface-950 text-sm font-semibold hover:bg-brand-400 transition-colors duration-200 cursor-pointer shadow-lg shadow-brand-500/20"
+					>
+						<Plus className="w-4 h-4" />
+						<span>Create Post</span>
+					</Link>
+				</div>
 			</div>
 
 			{/* ── Stats Grid ─────────────────────────── */}
@@ -106,35 +116,19 @@ export default function HomePage() {
 				{/* Posts Grid */}
 				{!loading && !error && (
 					<div className="grid grid-cols-1 md:grid-cols-2 gap-4 stagger">
-						{posts.map(
-							(post: {
-								id: string;
-								title: string;
-								content: string;
-								tags: string[];
-								author: {
-									id: string;
-									username: string;
-									firstName?: string | null;
-									lastName?: string | null;
-								};
-								viewCount: number;
-								createdAt: string;
-								status: string;
-							}) => (
-								<PostCard
-									key={post.id}
-									title={post.title}
-									content={post.content}
-									tags={post.tags}
-									author={post.author}
-									viewCount={post.viewCount}
-									createdAt={post.createdAt}
-									status={post.status}
-									onClick={() => navigate(`/post/${post.id}`)}
-								/>
-							),
-						)}
+						{posts.map((post: Post) => (
+							<PostCard
+								key={post.id}
+								title={post.title}
+								content={post.content}
+								tags={post.tags}
+								author={post.author}
+								viewCount={post.viewCount}
+								createdAt={post.createdAt}
+								status={post.status}
+								onClick={() => navigate(`/post/${post.id}`)}
+							/>
+						))}
 					</div>
 				)}
 

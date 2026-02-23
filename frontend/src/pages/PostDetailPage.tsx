@@ -1,16 +1,28 @@
+import { useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useQuery } from "@apollo/client/react";
-import { GET_POST } from "../graphql/queries";
+import { useQuery, useMutation } from "@apollo/client/react";
+import { GET_POST, INCREMENT_VIEW_COUNT } from "../graphql/queries";
 import { ArrowLeft, Calendar, Eye, User, Tag } from "lucide-react";
+import type { Post } from "../types";
 
 export default function PostDetailPage() {
 	const { id } = useParams<{ id: string }>();
 	const navigate = useNavigate();
+	const hasIncremented = useRef(false);
 
-	const { data, loading, error } = useQuery(GET_POST, {
+	const { data, loading, error } = useQuery<{ post: Post }>(GET_POST, {
 		variables: { id },
 		skip: !id,
 	});
+
+	const [incrementView] = useMutation(INCREMENT_VIEW_COUNT);
+
+	useEffect(() => {
+		if (id && !hasIncremented.current) {
+			hasIncremented.current = true;
+			incrementView({ variables: { id } }).catch(console.error);
+		}
+	}, [id, incrementView]);
 
 	const post = data?.post;
 

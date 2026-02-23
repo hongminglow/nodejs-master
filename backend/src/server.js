@@ -26,6 +26,10 @@ const { setupWebSocket } = require("./websocket");
 const { startScheduler } = require("./scheduler");
 const { authContext } = require("./middleware/auth");
 
+const { makeExecutableSchema } = require("@graphql-tools/schema");
+const { WebSocketServer } = require("ws");
+const { useServer } = require("graphql-ws/use/ws");
+
 /**
  * Bootstrap the application
  * - Connect to the database
@@ -44,10 +48,32 @@ async function startServer() {
 		await sequelize.sync({ force: false });
 		logger.info("✅ Database models synchronized");
 
-		// ── Step 2: Set up Apollo GraphQL Server ─────
+		// ── Step 2: Create HTTP Server ───────────────
+		const httpServer = http.createServer(app);
+
+		// ── Step 3: Set up Apollo GraphQL Server ─────
+		const schema = makeExecutableSchema({ typeDefs, resolvers });
+
+		// GraphQL Subscriptions Server
+		const wsServer = new WebSocketServer({
+			server: httpServer,
+			path: "/graphql",
+		});
+		const serverCleanup = useServer({ schema }, wsServer);
+
 		const apolloServer = new ApolloServer({
-			typeDefs,
-			resolvers,
+			schema,
+			plugins: [
+				{
+					async serverWillStart() {
+						return {
+							async drainServer() {
+								await serverCleanup.dispose();
+							},
+						};
+					},
+				},
+			],
 			formatError: (error) => {
 				logger.error("GraphQL Error:", error);
 				return {
@@ -59,9 +85,9 @@ async function startServer() {
 		});
 
 		await apolloServer.start();
-		logger.info("✅ Apollo GraphQL server started");
+		logger.info("✅ Apollo GraphQL server started with Subscriptions capability");
 
-		// Mount GraphQL at /graphql
+		// Mount GraphQL HTTP
 		app.use(
 			"/graphql",
 			expressMiddleware(apolloServer, {
@@ -72,12 +98,20 @@ async function startServer() {
 		// Register 404 and error handlers AFTER GraphQL is mounted
 		finalizeMiddleware();
 
-		// ── Step 3: Create HTTP Server ───────────────
-		const httpServer = http.createServer(app);
+		// ── Step 4: Set up General WebSockets ────────
+		const rawWsServer = new WebSocketServer({ noServer: true });
+		setupWebSocket(rawWsServer);
 
-		// ── Step 4: Set up WebSocket ─────────────────
-		setupWebSocket(httpServer);
-		logger.info("✅ WebSocket server initialized");
+		httpServer.on("upgrade", (request, socket, head) => {
+			if (request.url === "/") {
+				// non-graphql path
+				rawWsServer.handleUpgrade(request, socket, head, (ws) => {
+					rawWsServer.emit("connection", ws, request);
+				});
+			} // GraphQL WS handles itself internally by matching /graphql
+		});
+
+		logger.info("✅ Standard WebSocket server initialized on /");
 
 		// ── Step 5: Start Scheduler ──────────────────
 		startScheduler();

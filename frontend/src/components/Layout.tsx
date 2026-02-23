@@ -1,6 +1,7 @@
 import { Outlet, Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { LogOut, BookOpen } from "lucide-react";
+import { LogOut, GraduationCap } from "lucide-react";
+import LiveClock from "./LiveClock";
 
 export default function Layout() {
 	const { user, logout } = useAuth();
@@ -12,17 +13,20 @@ export default function Layout() {
 				<div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
 					<div className="flex items-center justify-between h-16">
 						{/* Logo */}
-						<Link to="/" className="flex items-center gap-2.5 group cursor-pointer">
-							<div className="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-500 to-accent-500 flex items-center justify-center transition-transform duration-200 group-hover:scale-105">
-								<BookOpen className="w-4 h-4 text-white" />
-							</div>
+						<Link to="/" className="flex items-center gap-2 group cursor-pointer">
+							<GraduationCap
+								className="w-8 h-8 text-green-500 transition-transform duration-200 group-hover:-translate-y-0.5"
+								strokeWidth={2}
+							/>
 							<span className="text-lg font-bold tracking-tight text-surface-50">
-								NodeJS<span className="text-brand-400">Master</span>
+								NodeJS<span className="text-green-500">Master</span>
 							</span>
 						</Link>
 
-						{/* Nav Links / Removed */}
-						<div className="hidden sm:flex items-center gap-1"></div>
+						{/* Nav / WebSockets Demo */}
+						<div className="hidden sm:flex items-center gap-1">
+							<LiveClock />
+						</div>
 
 						{/* User Menu */}
 						<div className="flex items-center gap-3">

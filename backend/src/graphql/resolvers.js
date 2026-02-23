@@ -253,6 +253,27 @@ const resolvers = {
 			const user = requireAuthentication(context);
 			return postService.deletePost(id, user.id);
 		},
+
+		/**
+		 * Increment a post's view count
+		 */
+		incrementViewCount: async (_parent, { id }) => {
+			return postService.incrementViewCount(id);
+		},
+	},
+
+	Subscription: {
+		/**
+		 * WebSockets Real-time pushing timer!
+		 */
+		currentTime: {
+			subscribe: async function* () {
+				for (let i = 0; i < 1000; i++) {
+					await new Promise((resolve) => setTimeout(resolve, 1000));
+					yield { currentTime: new Date().toISOString() };
+				}
+			},
+		},
 	},
 
 	// ════════════════════════════════════════════════

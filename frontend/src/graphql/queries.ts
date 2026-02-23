@@ -108,6 +108,15 @@ export const CREATE_POST = gql`
 	}
 `;
 
+export const INCREMENT_VIEW_COUNT = gql`
+	mutation IncrementViewCount($id: ID!) {
+		incrementViewCount(id: $id) {
+			id
+			viewCount
+		}
+	}
+`;
+
 /* ── Users ─────────────────────────────────── */
 
 export const GET_USERS = gql`
@@ -130,5 +139,13 @@ export const GET_USERS = gql`
 				totalPages
 			}
 		}
+	}
+`;
+
+/* ── Subscriptions ─────────────────────────── */
+
+export const CURRENT_TIME_SUBSCRIPTION = gql`
+	subscription CurrentTime {
+		currentTime
 	}
 `;

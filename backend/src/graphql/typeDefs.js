@@ -257,6 +257,14 @@ const typeDefs = gql`
 
 		"Delete a post (requires authentication + ownership)"
 		deletePost(id: ID!): DeleteResult!
+
+		"Increment the view count of a post"
+		incrementViewCount(id: ID!): Post!
+	}
+
+	type Subscription {
+		"A simple timer showcasing WebSockets! Pushes the current time every second."
+		currentTime: String!
 	}
 `;
 

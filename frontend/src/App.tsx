@@ -3,6 +3,7 @@ import { useAuth } from "./context/AuthContext";
 import LoginPage from "./pages/LoginPage";
 import HomePage from "./pages/HomePage";
 import PostDetailPage from "./pages/PostDetailPage";
+import CreatePostPage from "./pages/CreatePostPage";
 import Layout from "./components/Layout";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -36,6 +37,7 @@ export default function App() {
 			>
 				<Route index element={<HomePage />} />
 				<Route path="post/:id" element={<PostDetailPage />} />
+				<Route path="create-post" element={<CreatePostPage />} />
 			</Route>
 			<Route path="*" element={<Navigate to="/" replace />} />
 		</Routes>
