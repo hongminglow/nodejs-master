@@ -37,7 +37,17 @@ app.use(
 );
 
 // CORS — allow cross-origin requests (needed for frontend apps)
-app.use(cors());
+const corsOrigins = config.server.corsOrigin
+	.split(",")
+	.map((origin) => origin.trim())
+	.filter(Boolean);
+
+app.use(
+	cors({
+		origin: corsOrigins.length === 0 || corsOrigins.includes("*") ? true : corsOrigins,
+		credentials: true,
+	}),
+);
 
 // Request ID — attach a unique ID to every request for tracing
 app.use(requestId);

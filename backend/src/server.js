@@ -18,7 +18,7 @@ const { sequelize } = require("./database/connection");
 const { typeDefs, resolvers } = require("./graphql");
 const { setupWebSocket } = require("./websocket");
 const { startScheduler } = require("./scheduler");
-const { authContext, decodeToken } = require("./middleware/auth");
+const { authContext, getAuthenticatedUserFromHeader } = require("./middleware/auth");
 
 async function startServer() {
   try {
@@ -41,8 +41,16 @@ async function startServer() {
             typeof ctx.connectionParams?.authorization === "string"
               ? ctx.connectionParams.authorization
               : null;
-          const user = decodeToken(authHeader);
-          return { user };
+          if (!authHeader) {
+            return { user: null, authError: null };
+          }
+
+          try {
+            const user = await getAuthenticatedUserFromHeader(authHeader, { strict: true });
+            return { user, authError: null };
+          } catch (error) {
+            return { user: null, authError: error };
+          }
         },
       },
       graphqlWsServer,
@@ -61,12 +69,24 @@ async function startServer() {
           },
         },
       ],
-      formatError: (error) => {
-        logger.error("GraphQL Error:", error);
+      formatError: (formattedError, error) => {
+        const originalCode = error?.originalError?.code;
+        const code = originalCode || formattedError.extensions?.code || "INTERNAL_SERVER_ERROR";
+
+        logger.error("GraphQL Error:", {
+          message: formattedError.message,
+          code,
+          path: formattedError.path,
+        });
+
         return {
-          message: error.message,
-          code: error.extensions?.code || "INTERNAL_SERVER_ERROR",
-          path: error.path,
+          message: formattedError.message,
+          path: formattedError.path,
+          extensions: {
+            ...formattedError.extensions,
+            code,
+          },
+          code,
         };
       },
     });

@@ -6,6 +6,8 @@ export const LOGIN_MUTATION = gql`
   mutation Login($email: String!, $password: String!) {
     login(email: $email, password: $password) {
       token
+      tokenType
+      expiresIn
       user {
         id
         username
@@ -15,6 +17,30 @@ export const LOGIN_MUTATION = gql`
         role
       }
     }
+  }
+`;
+
+export const REFRESH_ACCESS_TOKEN_MUTATION = gql`
+  mutation RefreshAccessToken {
+    refreshAccessToken {
+      token
+      tokenType
+      expiresIn
+      user {
+        id
+        username
+        email
+        firstName
+        lastName
+        role
+      }
+    }
+  }
+`;
+
+export const LOGOUT_MUTATION = gql`
+  mutation Logout {
+    logout
   }
 `;
 

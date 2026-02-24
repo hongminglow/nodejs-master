@@ -34,6 +34,7 @@
 const cron = require("node-cron");
 const logger = require("../utils/logger");
 const { broadcastNotification } = require("../websocket");
+const authService = require("../services/auth.service");
 
 const startScheduler = () => {
   // ── Job 1: Health Heartbeat — every 5 minutes ──
@@ -80,6 +81,18 @@ const startScheduler = () => {
         timestamp: new Date().toISOString(),
       },
     });
+  });
+
+  // ── Job 5: Session cleanup — every 30 minutes ───
+  cron.schedule("*/30 * * * *", async () => {
+    try {
+      const revoked = await authService.cleanupExpiredSessions();
+      if (revoked > 0) {
+        logger.info(`🔐 Revoked ${revoked} expired sessions`);
+      }
+    } catch (error) {
+      logger.error("Failed to cleanup expired sessions:", error);
+    }
   });
 
   logger.info("📅 Scheduled jobs registered");

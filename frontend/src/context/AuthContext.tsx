@@ -1,13 +1,28 @@
-import { useState, useEffect, type ReactNode } from "react";
-import { useMutation, useLazyQuery } from "@apollo/client/react";
-import { LOGIN_MUTATION, GET_ME } from "../graphql/queries";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useMutation } from "@apollo/client/react";
+import {
+	LOGIN_MUTATION,
+	LOGOUT_MUTATION,
+	REFRESH_ACCESS_TOKEN_MUTATION,
+} from "../graphql/queries";
 import { AuthContext, type AuthUser } from "./AuthContextStore";
+import {
+	clearAccessToken,
+	getAccessToken,
+	onAccessTokenChange,
+	onAuthInvalidated,
+	setAccessToken,
+} from "../auth/session";
+
+interface AuthPayload {
+	token: string;
+	tokenType: string;
+	expiresIn: string;
+	user: AuthUser;
+}
 
 interface LoginMutationData {
-	login: {
-		token: string;
-		user: AuthUser;
-	};
+	login: AuthPayload;
 }
 
 interface LoginMutationVars {
@@ -15,66 +30,86 @@ interface LoginMutationVars {
 	password: string;
 }
 
-interface GetMeQueryData {
-	me: AuthUser | null;
+interface RefreshAccessTokenData {
+	refreshAccessToken: AuthPayload;
+}
+
+interface LogoutData {
+	logout: boolean;
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
 	const [user, setUser] = useState<AuthUser | null>(null);
-	const [token, setToken] = useState<string | null>(localStorage.getItem("token"));
+	const [token, setTokenState] = useState<string | null>(getAccessToken());
 	const [error, setError] = useState<string | null>(null);
-	const [isLoading, setIsLoading] = useState(!!token);
+	const [isLoading, setIsLoading] = useState(true);
 
 	const [loginMutation] = useMutation<LoginMutationData, LoginMutationVars>(LOGIN_MUTATION);
-	const [fetchMe] = useLazyQuery<GetMeQueryData>(GET_ME, {
-		fetchPolicy: "network-only",
+	const [refreshMutation] = useMutation<RefreshAccessTokenData>(REFRESH_ACCESS_TOKEN_MUTATION, {
+		fetchPolicy: "no-cache",
 	});
+	const [logoutMutation] = useMutation<LogoutData>(LOGOUT_MUTATION);
 
-	// On mount: if we have a token, fetch the user
+	const clearSessionState = useCallback((message: string | null = null) => {
+		clearAccessToken();
+		setUser(null);
+		setError(message);
+	}, []);
+
 	useEffect(() => {
-		if (token) {
-			fetchMe()
-				.then(({ data }) => {
-					if (data?.me) {
-						setUser(data.me);
-					} else {
-						// Token is invalid
-						localStorage.removeItem("token");
-						setToken(null);
-					}
-				})
-				.catch(() => {
-					localStorage.removeItem("token");
-					setToken(null);
-				})
-				.finally(() => setIsLoading(false));
+		const unsubscribeToken = onAccessTokenChange((nextToken) => {
+			setTokenState(nextToken);
+		});
+
+		const unsubscribeInvalidation = onAuthInvalidated((reason) => {
+			if (reason === "manual_logout") {
+				clearSessionState(null);
+				return;
+			}
+			clearSessionState("Your session expired. Please sign in again.");
+		});
+
+		return () => {
+			unsubscribeToken();
+			unsubscribeInvalidation();
+		};
+	}, [clearSessionState]);
+
+	const bootstrapSession = useCallback(async () => {
+		try {
+			const { data } = await refreshMutation();
+			if (data?.refreshAccessToken) {
+				setAccessToken(data.refreshAccessToken.token);
+				setUser(data.refreshAccessToken.user);
+				setError(null);
+			} else {
+				clearSessionState(null);
+			}
+		} catch {
+			clearSessionState(null);
+		} finally {
+			setIsLoading(false);
 		}
-	}, []); // eslint-disable-line react-hooks/exhaustive-deps
+	}, [clearSessionState, refreshMutation]);
+
+	useEffect(() => {
+		bootstrapSession();
+	}, [bootstrapSession]);
 
 	const login = async (email: string, password: string) => {
 		setError(null);
-		try {
-			const { data } = await loginMutation({
-				variables: { email, password },
-			});
-
-			if (data?.login) {
-				const { token: newToken, user: loggedInUser } = data.login;
-				localStorage.setItem("token", newToken);
-				setToken(newToken);
-				setUser(loggedInUser);
-			}
-		} catch (err: unknown) {
-			const message = err instanceof Error ? err.message : "Login failed";
-			setError(message);
-			throw err;
+		const { data } = await loginMutation({ variables: { email, password } });
+		if (!data?.login) {
+			throw new Error("Login failed");
 		}
+
+		setAccessToken(data.login.token);
+		setUser(data.login.user);
 	};
 
 	const logout = () => {
-		localStorage.removeItem("token");
-		setToken(null);
-		setUser(null);
+		logoutMutation().catch(() => undefined);
+		clearSessionState(null);
 	};
 
 	return (
@@ -82,7 +117,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 			value={{
 				user,
 				token,
-				isAuthenticated: !!user,
+				isAuthenticated: !!user && !!token,
 				isLoading,
 				login,
 				logout,

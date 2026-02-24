@@ -28,7 +28,7 @@ const seedData = async () => {
 				{
 					username: "johndoe",
 					email: "john@example.com",
-					password: "password123",
+					password: "Password123!",
 					firstName: "John",
 					lastName: "Doe",
 					role: "admin",
@@ -36,7 +36,7 @@ const seedData = async () => {
 				{
 					username: "janedoe",
 					email: "jane@example.com",
-					password: "password123",
+					password: "Password123!",
 					firstName: "Jane",
 					lastName: "Doe",
 					role: "user",
@@ -44,7 +44,7 @@ const seedData = async () => {
 				{
 					username: "bobsmith",
 					email: "bob@example.com",
-					password: "password123",
+					password: "Password123!",
 					firstName: "Bob",
 					lastName: "Smith",
 					role: "moderator",
@@ -101,7 +101,7 @@ const seedData = async () => {
 		console.log("\n🎉 Database seeded successfully!\n");
 		console.log("Sample login credentials:");
 		console.log("  Email: john@example.com");
-		console.log("  Password: password123\n");
+		console.log("  Password: Password123!\n");
 
 		process.exit(0);
 	} catch (error) {

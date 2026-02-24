@@ -2,53 +2,92 @@
  * ============================================
  * User Service — Business Logic Layer
  * ============================================
- *
- * 📚 LEARNING NOTES:
- * - Services contain the BUSINESS LOGIC of the application
- * - They sit between controllers/resolvers and the database
- * - Controllers handle HTTP, services handle logic, models handle data
- * - This separation makes code testable and reusable
- * - Both REST controllers AND GraphQL resolvers use the same service
- *
- * Architecture:
- *   Client → Routes → Controller → Service → Model → Database
- *   Client → GraphQL → Resolver  → Service → Model → Database
  */
 
 const { Op } = require("sequelize");
 const { User, Post } = require("../database/models");
-const { NotFoundError, ConflictError, AuthenticationError } = require("../utils/errors");
-const { generateToken } = require("../middleware/auth");
+const {
+	NotFoundError,
+	ConflictError,
+	ForbiddenError,
+	ValidationError,
+} = require("../utils/errors");
+const config = require("../config");
 const logger = require("../utils/logger");
+const authService = require("./auth.service");
+
+const STRONG_PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).+$/;
 
 class UserService {
+	validatePasswordStrength(password) {
+		if (typeof password !== "string" || password.length < config.security.passwordMinLength) {
+			throw new ValidationError(
+				`Password must be at least ${config.security.passwordMinLength} characters long`,
+			);
+		}
+
+		if (!STRONG_PASSWORD_REGEX.test(password)) {
+			throw new ValidationError(
+				"Password must include uppercase, lowercase, number, and special character",
+			);
+		}
+	}
+
+	assertUserAccess(actor, targetUserId) {
+		if (!actor) {
+			throw new ForbiddenError("You are not allowed to perform this action");
+		}
+		if (actor.role === "admin") return;
+		if (actor.id !== targetUserId) {
+			throw new ForbiddenError("You can only access your own account");
+		}
+	}
+
 	/**
 	 * Create a new user
 	 */
-	async createUser(data) {
-		// Check for existing user with same email or username
+	async createUser(data, actor = null) {
+		this.validatePasswordStrength(data.password);
+
+		const normalizedEmail = String(data.email || "").trim().toLowerCase();
+		const normalizedUsername = String(data.username || "").trim();
+
+		if (data.role && data.role !== "user" && actor?.role !== "admin") {
+			throw new ForbiddenError("Only admin users can assign privileged roles");
+		}
+
+		const role = actor?.role === "admin" && data.role ? data.role : "user";
+
 		const existing = await User.scope("withPassword").findOne({
 			where: {
-				[Op.or]: [{ email: data.email }, { username: data.username }],
+				[Op.or]: [{ email: normalizedEmail }, { username: normalizedUsername }],
 			},
 		});
 
 		if (existing) {
-			const field = existing.email === data.email ? "email" : "username";
+			const field = existing.email === normalizedEmail ? "email" : "username";
 			throw new ConflictError(`A user with this ${field} already exists`);
 		}
 
-		const user = await User.create(data);
+		const user = await User.create({
+			...data,
+			email: normalizedEmail,
+			username: normalizedUsername,
+			role,
+		});
 		logger.info(`User created: ${user.id} (${user.username})`);
 
-		// Return user without password
 		return User.findByPk(user.id);
 	}
 
 	/**
 	 * Get a user by ID
 	 */
-	async getUserById(id) {
+	async getUserById(id, actor = null) {
+		if (actor) {
+			this.assertUserAccess(actor, id);
+		}
+
 		const user = await User.findByPk(id, {
 			include: [
 				{
@@ -69,7 +108,14 @@ class UserService {
 	/**
 	 * List users with pagination, search, and sorting
 	 */
-	async listUsers({ page = 1, limit = 10, search, role, sortBy = "createdAt", sortOrder = "desc" }) {
+	async listUsers(
+		{ page = 1, limit = 10, search, role, sortBy = "createdAt", sortOrder = "desc" },
+		actor,
+	) {
+		if (!actor || actor.role !== "admin") {
+			throw new ForbiddenError("Only admin users can list all users");
+		}
+
 		const numericPage = Number(page) > 0 ? Number(page) : 1;
 		const numericLimit = Number(limit) > 0 ? Number(limit) : 10;
 		const safeSortBy = new Set(["createdAt", "username", "email", "role", "lastLoginAt"]).has(sortBy)
@@ -79,7 +125,6 @@ class UserService {
 
 		const where = {};
 
-		// Search filter (search username, email, firstName, lastName)
 		if (search) {
 			where[Op.or] = [
 				{ username: { [Op.like]: `%${search}%` } },
@@ -89,7 +134,6 @@ class UserService {
 			];
 		}
 
-		// Role filter
 		if (role) {
 			where.role = role;
 		}
@@ -112,13 +156,34 @@ class UserService {
 	/**
 	 * Update a user
 	 */
-	async updateUser(id, data) {
+	async updateUser(id, data, actor) {
+		this.assertUserAccess(actor, id);
+
 		const user = await User.findByPk(id);
 		if (!user) {
 			throw new NotFoundError(`User with ID ${id} not found`);
 		}
 
-		// Check for conflicts if updating unique fields
+		if (actor.role !== "admin") {
+			if (data.role && data.role !== user.role) {
+				throw new ForbiddenError("Only admin users can change roles");
+			}
+			if (typeof data.isActive === "boolean" && data.isActive !== user.isActive) {
+				throw new ForbiddenError("Only admin users can activate or deactivate accounts");
+			}
+		}
+
+		if (data.password) {
+			this.validatePasswordStrength(data.password);
+		}
+
+		if (data.email) {
+			data.email = String(data.email).trim().toLowerCase();
+		}
+		if (data.username) {
+			data.username = String(data.username).trim();
+		}
+
 		if (data.email || data.username) {
 			const conflict = await User.findOne({
 				where: {
@@ -148,53 +213,24 @@ class UserService {
 	/**
 	 * Delete a user
 	 */
-	async deleteUser(id) {
+	async deleteUser(id, actor) {
+		this.assertUserAccess(actor, id);
+
 		const user = await User.findByPk(id);
 		if (!user) {
 			throw new NotFoundError(`User with ID ${id} not found`);
 		}
 
+		await authService.logoutAllSessions(user.id);
 		await user.destroy();
 		logger.info(`User deleted: ${id}`);
 
 		return { message: "User deleted successfully", id };
 	}
 
-	/**
-	 * Login — authenticate a user and return a JWT token
-	 */
-	async login(email, password) {
-		// Find user with password (normally excluded by defaultScope)
-		const user = await User.scope("withPassword").findOne({
-			where: { email },
-		});
-
-		if (!user) {
-			throw new AuthenticationError("Invalid email or password");
-		}
-
-		if (!user.isActive) {
-			throw new AuthenticationError("Account is deactivated");
-		}
-
-		// Verify password
-		const isMatch = await user.verifyPassword(password);
-		if (!isMatch) {
-			throw new AuthenticationError("Invalid email or password");
-		}
-
-		// Update last login timestamp
-		await user.update({ lastLoginAt: new Date() });
-
-		// Generate JWT token
-		const token = generateToken(user);
-
-		return {
-			token,
-			user: user.toSafeJSON(),
-		};
+	async login(email, password, metadata = {}) {
+		return authService.login(email, password, metadata);
 	}
 }
 
-// Export a singleton instance
 module.exports = new UserService();

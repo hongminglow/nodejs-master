@@ -33,6 +33,7 @@ This project is a monorepo separated into `frontend/` and `backend/` directories
    npm run dev
    ```
    **Backend URL:** `http://localhost:4000/graphql`
+   **Sample login after seeding:** `john@example.com / Password123!`
 
 ### Frontend Setup (React + Vite)
 
@@ -106,6 +107,25 @@ subscription PostActivity {
 	}
 }
 ```
+
+---
+
+## 🔐 Authentication & Security Enhancements
+
+The app now uses a hardened auth flow inspired by modern production setups:
+
+- **Short-lived access tokens** for API auth (`Authorization: Bearer ...`).
+- **Refresh-token rotation** using **httpOnly, sameSite=strict cookies**.
+- **Server-side session table** (`user_sessions`) with revocation + expiry checks.
+- **Automatic frontend session invalidation** when backend returns auth errors.
+- **Login brute-force protections** with failed-attempt tracking + temporary account lock.
+- **Strong password policy** enforced in both validation and service layer.
+- **Role-safe authorization rules**: only admins can list all users or assign privileged roles.
+
+This means:
+- Missing/invalid bearer token on protected APIs returns auth errors.
+- Frontend detects those errors and clears the current session automatically.
+- Logged out/revoked sessions cannot continue calling protected APIs.
 
 ---
 

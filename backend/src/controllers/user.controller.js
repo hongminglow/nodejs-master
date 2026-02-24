@@ -2,68 +2,92 @@
  * ============================================
  * User Controller — HTTP Request Handlers
  * ============================================
- *
- * 📚 LEARNING NOTES:
- * - Controllers handle the HTTP layer (req/res)
- * - They delegate business logic to the SERVICE layer
- * - Controllers should be thin — mostly just:
- *   1. Extract data from the request
- *   2. Call the service
- *   3. Send the response
- * - Use `asyncHandler` to avoid try/catch in every method
  */
 
 const userService = require("../services/user.service");
+const authService = require("../services/auth.service");
+const {
+	setRefreshTokenCookie,
+	clearRefreshTokenCookie,
+	getRefreshTokenFromRequest,
+} = require("../middleware/auth");
 const { buildResponse, buildPaginatedResponse } = require("../utils/helpers");
 
+const getRequestMetadata = (req) => ({
+	ipAddress: req.ip,
+	userAgent: req.get("user-agent"),
+});
+
 class UserController {
-	/**
-	 * POST /api/users — Create a new user
-	 */
 	async create(req, res) {
 		const user = await userService.createUser(req.body);
 		res.status(201).json(buildResponse(user, "User created successfully"));
 	}
 
-	/**
-	 * GET /api/users/:id — Get a specific user
-	 */
 	async getById(req, res) {
-		const user = await userService.getUserById(req.params.id);
+		const user = await userService.getUserById(req.params.id, req.user);
 		res.json(buildResponse(user));
 	}
 
-	/**
-	 * GET /api/users — List users with pagination
-	 */
 	async list(req, res) {
-		const { users, total, page, limit } = await userService.listUsers(req.query);
+		const { users, total, page, limit } = await userService.listUsers(req.query, req.user);
 		res.json(buildPaginatedResponse(users, total, page, limit));
 	}
 
-	/**
-	 * PUT /api/users/:id — Update a user
-	 */
 	async update(req, res) {
-		const user = await userService.updateUser(req.params.id, req.body);
+		const user = await userService.updateUser(req.params.id, req.body, req.user);
 		res.json(buildResponse(user, "User updated successfully"));
 	}
 
-	/**
-	 * DELETE /api/users/:id — Delete a user
-	 */
 	async delete(req, res) {
-		const result = await userService.deleteUser(req.params.id);
+		const result = await userService.deleteUser(req.params.id, req.user);
 		res.json(buildResponse(result, "User deleted successfully"));
 	}
 
-	/**
-	 * POST /api/users/login — Authenticate a user
-	 */
 	async login(req, res) {
 		const { email, password } = req.body;
-		const result = await userService.login(email, password);
-		res.json(buildResponse(result, "Login successful"));
+		const result = await authService.login(email, password, getRequestMetadata(req));
+		setRefreshTokenCookie(res, result.refreshToken, result.refreshTokenExpiresAt);
+
+		res.json(
+			buildResponse(
+				{
+					token: result.token,
+					tokenType: result.tokenType,
+					expiresIn: result.expiresIn,
+					user: result.user,
+				},
+				"Login successful",
+			),
+		);
+	}
+
+	async refreshToken(req, res) {
+		const refreshToken = getRefreshTokenFromRequest(req);
+		const result = await authService.refreshAccessToken(refreshToken, getRequestMetadata(req));
+		setRefreshTokenCookie(res, result.refreshToken, result.refreshTokenExpiresAt);
+
+		res.json(
+			buildResponse({
+				token: result.token,
+				tokenType: result.tokenType,
+				expiresIn: result.expiresIn,
+				user: result.user,
+			}),
+		);
+	}
+
+	async logout(req, res) {
+		const refreshToken = getRefreshTokenFromRequest(req);
+		await authService.logout(refreshToken, req.user?.sessionId || null);
+		clearRefreshTokenCookie(res);
+		res.json(buildResponse({ loggedOut: true }, "Logged out successfully"));
+	}
+
+	async logoutAll(req, res) {
+		await authService.logoutAllSessions(req.user.id);
+		clearRefreshTokenCookie(res);
+		res.json(buildResponse({ loggedOut: true }, "All sessions logged out"));
 	}
 }
 

@@ -2,45 +2,29 @@
  * ============================================
  * GraphQL Resolvers
  * ============================================
- *
- * 📚 LEARNING NOTES:
- *
- * Resolvers are functions that "resolve" (fetch/compute) the data
- * for each field in your GraphQL schema.
- *
- * Resolver function signature:
- *   resolver(parent, args, context, info)
- *     parent  → the return value of the parent resolver (for nested fields)
- *     args    → the arguments passed in the query/mutation
- *     context → shared data across all resolvers (user auth, DB, etc.)
- *     info    → metadata about the query (rarely needed)
- *
- * Resolver map structure mirrors the schema:
- *   Query.users     → resolves the `users` query
- *   Mutation.login  → resolves the `login` mutation
- *   User.posts      → resolves the `posts` field on User type
- *
- * Important:
- *   - We reuse the same SERVICE layer as REST controllers
- *   - This means one set of business logic, two API styles!
- *   - Throw errors and Apollo will format them for the client
  */
 
 const { GraphQLError } = require("graphql");
 const os = require("os");
+
 const userService = require("../services/user.service");
 const postService = require("../services/post.service");
+const authService = require("../services/auth.service");
 const analyticsService = require("../services/analytics.service");
 const runtimeService = require("../services/runtime.service");
 const { createPostActivityIterator } = require("../events/postActivity");
+const {
+	setRefreshTokenCookie,
+	clearRefreshTokenCookie,
+	getRefreshTokenFromRequest,
+} = require("../middleware/auth");
 
-/**
- * Helper to ensure the user is authenticated
- */
 const requireAuthentication = (context) => {
 	if (!context.user) {
-		throw new GraphQLError("You must be logged in", {
-			extensions: { code: "UNAUTHENTICATED" },
+		const code = context.authError?.code || "AUTH_REQUIRED";
+		const message = context.authError?.message || "You must be logged in";
+		throw new GraphQLError(message, {
+			extensions: { code },
 		});
 	}
 	return context.user;
@@ -52,15 +36,16 @@ const clampInterval = (value) => {
 	return Math.max(500, Math.min(numeric, 15000));
 };
 
-const resolvers = {
-	// ════════════════════════════════════════════════
-	// QUERY RESOLVERS — Handle all "read" operations
-	// ════════════════════════════════════════════════
+const getRequestMetadata = (req) => ({
+	ipAddress: req?.ip,
+	userAgent: req?.get?.("user-agent"),
+});
 
+const resolvers = {
 	Query: {
 		users: async (_parent, { filter = {} }, context) => {
-			requireAuthentication(context);
-			const { users, total, page, limit } = await userService.listUsers(filter);
+			const actor = requireAuthentication(context);
+			const { users, total, page, limit } = await userService.listUsers(filter, actor);
 			return {
 				users,
 				pagination: {
@@ -74,11 +59,14 @@ const resolvers = {
 			};
 		},
 
-		user: async (_parent, { id }) => userService.getUserById(id),
+		user: async (_parent, { id }, context) => {
+			const actor = requireAuthentication(context);
+			return userService.getUserById(id, actor);
+		},
 
 		me: async (_parent, _args, context) => {
-			const user = requireAuthentication(context);
-			return userService.getUserById(user.id);
+			const actor = requireAuthentication(context);
+			return userService.getUserById(actor.id, actor);
 		},
 
 		posts: async (_parent, { filter = {} }) => {
@@ -118,24 +106,63 @@ const resolvers = {
 		}),
 	},
 
-	// ════════════════════════════════════════════════
-	// MUTATION RESOLVERS — Handle all "write" operations
-	// ════════════════════════════════════════════════
-
 	Mutation: {
-		createUser: async (_parent, { input }) => userService.createUser(input),
+		createUser: async (_parent, { input }, context) => userService.createUser(input, context.user || null),
 
 		updateUser: async (_parent, { id, input }, context) => {
-			requireAuthentication(context);
-			return userService.updateUser(id, input);
+			const actor = requireAuthentication(context);
+			return userService.updateUser(id, input, actor);
 		},
 
 		deleteUser: async (_parent, { id }, context) => {
-			requireAuthentication(context);
-			return userService.deleteUser(id);
+			const actor = requireAuthentication(context);
+			return userService.deleteUser(id, actor);
 		},
 
-		login: async (_parent, { email, password }) => userService.login(email, password),
+		login: async (_parent, { email, password }, context) => {
+			const result = await authService.login(email, password, getRequestMetadata(context.req));
+			if (context.res) {
+				setRefreshTokenCookie(context.res, result.refreshToken, result.refreshTokenExpiresAt);
+			}
+			return {
+				token: result.token,
+				tokenType: result.tokenType,
+				expiresIn: result.expiresIn,
+				user: result.user,
+			};
+		},
+
+		refreshAccessToken: async (_parent, _args, context) => {
+			const refreshToken = getRefreshTokenFromRequest(context.req);
+			const result = await authService.refreshAccessToken(refreshToken, getRequestMetadata(context.req));
+			if (context.res) {
+				setRefreshTokenCookie(context.res, result.refreshToken, result.refreshTokenExpiresAt);
+			}
+			return {
+				token: result.token,
+				tokenType: result.tokenType,
+				expiresIn: result.expiresIn,
+				user: result.user,
+			};
+		},
+
+		logout: async (_parent, _args, context) => {
+			const refreshToken = getRefreshTokenFromRequest(context.req);
+			await authService.logout(refreshToken, context.user?.sessionId || null);
+			if (context.res) {
+				clearRefreshTokenCookie(context.res);
+			}
+			return true;
+		},
+
+		logoutAllSessions: async (_parent, _args, context) => {
+			const actor = requireAuthentication(context);
+			await authService.logoutAllSessions(actor.id);
+			if (context.res) {
+				clearRefreshTokenCookie(context.res);
+			}
+			return true;
+		},
 
 		createPost: async (_parent, { input }, context) => {
 			const user = requireAuthentication(context);
@@ -185,10 +212,6 @@ const resolvers = {
 			},
 		},
 	},
-
-	// ════════════════════════════════════════════════
-	// FIELD RESOLVERS — Resolve nested/computed fields
-	// ════════════════════════════════════════════════
 
 	User: {
 		posts: async (parent) => {

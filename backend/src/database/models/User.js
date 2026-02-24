@@ -18,6 +18,7 @@
 const { DataTypes } = require("sequelize");
 const bcrypt = require("bcrypt");
 const { sequelize } = require("../connection");
+const config = require("../../config");
 
 const User = sequelize.define(
 	"users",
@@ -57,8 +58,8 @@ const User = sequelize.define(
 			allowNull: false,
 			validate: {
 				len: {
-					args: [6, 255],
-					msg: "Password must be at least 6 characters",
+					args: [config.security.passwordMinLength, 255],
+					msg: `Password must be at least ${config.security.passwordMinLength} characters`,
 				},
 			},
 		},
@@ -87,6 +88,22 @@ const User = sequelize.define(
 			allowNull: true,
 			field: "last_login_at",
 		},
+		failedLoginAttempts: {
+			type: DataTypes.INTEGER,
+			defaultValue: 0,
+			allowNull: false,
+			field: "failed_login_attempts",
+		},
+		lockedUntil: {
+			type: DataTypes.DATE,
+			allowNull: true,
+			field: "locked_until",
+		},
+		passwordChangedAt: {
+			type: DataTypes.DATE,
+			allowNull: true,
+			field: "password_changed_at",
+		},
 	},
 	{
 		// ── Hooks ──────────────────────────────────────
@@ -95,15 +112,17 @@ const User = sequelize.define(
 			// Hash password before creating a new user
 			beforeCreate: async (user) => {
 				if (user.password) {
-					const salt = await bcrypt.genSalt(10);
+					const salt = await bcrypt.genSalt(config.security.bcryptRounds);
 					user.password = await bcrypt.hash(user.password, salt);
 				}
+				user.passwordChangedAt = new Date();
 			},
 			// Hash password before updating (only if it changed)
 			beforeUpdate: async (user) => {
 				if (user.changed("password")) {
-					const salt = await bcrypt.genSalt(10);
+					const salt = await bcrypt.genSalt(config.security.bcryptRounds);
 					user.password = await bcrypt.hash(user.password, salt);
+					user.passwordChangedAt = new Date();
 				}
 			},
 		},

@@ -17,6 +17,7 @@
 
 const User = require("./User");
 const Post = require("./Post");
+const UserSession = require("./UserSession");
 
 // ── Define Associations ────────────────────────
 
@@ -32,8 +33,21 @@ Post.belongsTo(User, {
 	as: "author", // Post.getAuthor()
 });
 
+// User ↔ UserSession (One-to-Many)
+User.hasMany(UserSession, {
+	foreignKey: "userId",
+	as: "sessions",
+	onDelete: "CASCADE",
+});
+
+UserSession.belongsTo(User, {
+	foreignKey: "userId",
+	as: "user",
+});
+
 // ── Export All Models ──────────────────────────
 module.exports = {
 	User,
 	Post,
+	UserSession,
 };

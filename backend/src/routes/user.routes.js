@@ -35,7 +35,13 @@ router.post("/register", validate(createUserSchema), asyncHandler(userController
 
 router.post("/login", validate(loginSchema), asyncHandler(userController.login));
 
+router.post("/refresh-token", asyncHandler(userController.refreshToken));
+
 // ── Protected Routes (require authentication) ──
+router.post("/logout", requireAuth, asyncHandler(userController.logout));
+
+router.post("/logout-all", requireAuth, asyncHandler(userController.logoutAll));
+
 router.get("/", requireAuth, validate(listUsersSchema), asyncHandler(userController.list));
 
 router.get("/:id", requireAuth, validate(getUserSchema), asyncHandler(userController.getById));

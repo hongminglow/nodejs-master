@@ -44,6 +44,8 @@ const typeDefs = gql`
 
   type AuthPayload {
     token: String!
+    tokenType: String!
+    expiresIn: String!
     user: User!
   }
 
@@ -205,6 +207,9 @@ const typeDefs = gql`
     updateUser(id: ID!, input: UpdateUserInput!): User!
     deleteUser(id: ID!): DeleteResult!
     login(email: String!, password: String!): AuthPayload!
+    refreshAccessToken: AuthPayload!
+    logout: Boolean!
+    logoutAllSessions: Boolean!
     createPost(input: CreatePostInput!): Post!
     updatePost(id: ID!, input: UpdatePostInput!): Post!
     deletePost(id: ID!): DeleteResult!
