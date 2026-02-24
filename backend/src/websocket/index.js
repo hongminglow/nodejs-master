@@ -2,26 +2,6 @@
  * ============================================
  * WebSocket Server
  * ============================================
- *
- * 📚 LEARNING NOTES:
- * - WebSockets provide real-time, bidirectional communication
- * - Unlike HTTP (request/response), WebSockets stay connected
- * - Great for: chat, live notifications, real-time dashboards
- * - We use the `ws` library (lightweight, no abstraction overhead)
- *
- * How it works:
- *   1. Client opens a WebSocket connection: ws://localhost:4000
- *   2. Server and client can send messages at any time
- *   3. The connection stays open until either side closes it
- *
- * Message format (JSON):
- *   { "type": "chat", "data": { "message": "Hello!" } }
- *
- * Try it:
- *   - Open browser console
- *   - const ws = new WebSocket('ws://localhost:4000')
- *   - ws.onmessage = (e) => console.log(JSON.parse(e.data))
- *   - ws.send(JSON.stringify({ type: 'chat', data: { message: 'Hi!' } }))
  */
 
 const WebSocket = require("ws");
@@ -30,23 +10,19 @@ const logger = require("../utils/logger");
 let globalWssInstance = null;
 
 /**
- * Set up WebSocket server on the existing HTTP server
+ * Attach handlers to an existing WebSocketServer instance
  */
 const setupWebSocket = (wss) => {
   globalWssInstance = wss;
 
-  // Track connected clients
   const clients = new Map();
 
-  wss.on("connection", (ws, req) => {
+  wss.on("connection", (ws) => {
     const clientId = Date.now().toString(36);
     clients.set(clientId, { ws, connectedAt: new Date() });
 
-    logger.info(
-      `WebSocket: Client ${clientId} connected (Total: ${clients.size})`,
-    );
+    logger.info(`WebSocket: Client ${clientId} connected (Total: ${clients.size})`);
 
-    // Send welcome message
     ws.send(
       JSON.stringify({
         type: "connected",
@@ -58,7 +34,6 @@ const setupWebSocket = (wss) => {
       }),
     );
 
-    // Handle incoming messages
     ws.on("message", (rawMessage) => {
       try {
         const message = JSON.parse(rawMessage.toString());
@@ -66,7 +41,6 @@ const setupWebSocket = (wss) => {
 
         switch (message.type) {
           case "ping":
-            // Respond to ping with pong
             ws.send(
               JSON.stringify({
                 type: "pong",
@@ -76,7 +50,6 @@ const setupWebSocket = (wss) => {
             break;
 
           case "chat":
-            // Broadcast chat message to all connected clients
             broadcast(
               wss,
               {
@@ -88,11 +61,10 @@ const setupWebSocket = (wss) => {
                 },
               },
               ws,
-            ); // Exclude sender
+            );
             break;
 
           case "status":
-            // Return server status
             ws.send(
               JSON.stringify({
                 type: "status",
@@ -116,7 +88,7 @@ const setupWebSocket = (wss) => {
               }),
             );
         }
-      } catch (error) {
+      } catch {
         ws.send(
           JSON.stringify({
             type: "error",
@@ -126,15 +98,11 @@ const setupWebSocket = (wss) => {
       }
     });
 
-    // Handle disconnection
     ws.on("close", () => {
       clients.delete(clientId);
-      logger.info(
-        `WebSocket: Client ${clientId} disconnected (Total: ${clients.size})`,
-      );
+      logger.info(`WebSocket: Client ${clientId} disconnected (Total: ${clients.size})`);
     });
 
-    // Handle errors
     ws.on("error", (error) => {
       logger.error(`WebSocket: Client ${clientId} error:`, error);
       clients.delete(clientId);
@@ -144,9 +112,6 @@ const setupWebSocket = (wss) => {
   return wss;
 };
 
-/**
- * Broadcast a message to all connected clients (optionally excluding one)
- */
 const broadcast = (wss, message, excludeWs = null) => {
   const data = JSON.stringify(message);
   wss.clients.forEach((client) => {

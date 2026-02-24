@@ -7,7 +7,7 @@
 const express = require("express");
 const postController = require("../controllers/post.controller");
 const { validate } = require("../middleware/validate");
-const { requireAuth, optionalAuth } = require("../middleware/auth");
+const { requireAuth } = require("../middleware/auth");
 const { asyncHandler } = require("../utils/helpers");
 const { createPostSchema, updatePostSchema, getPostSchema, listPostsSchema } = require("../validators/post.validator");
 

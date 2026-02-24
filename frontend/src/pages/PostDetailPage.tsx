@@ -48,9 +48,7 @@ export default function PostDetailPage() {
   if (error || !post) {
     return (
       <div className="text-center py-20">
-        <p className="text-red-400 mb-4">
-          {error ? error.message : "Post not found"}
-        </p>
+        <p className="text-red-400 mb-4">{error ? error.message : "Post not found"}</p>
         <button
           onClick={() => navigate("/")}
           className="text-sm text-brand-400 hover:text-brand-300 cursor-pointer"
@@ -65,19 +63,15 @@ export default function PostDetailPage() {
     ? `${post.author.firstName} ${post.author.lastName || ""}`
     : post.author.username;
 
-  const formattedDate = new Date(Number(post.createdAt)).toLocaleDateString(
-    "en-US",
-    {
-      weekday: "long",
-      month: "long",
-      day: "numeric",
-      year: "numeric",
-    },
-  );
+  const formattedDate = new Date(post.createdAt).toLocaleDateString("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
 
   return (
     <div className="max-w-3xl mx-auto animate-fade-in">
-      {/* Back button */}
       <button
         onClick={() => navigate("/")}
         className="flex items-center gap-2 text-sm text-surface-400 hover:text-surface-200 mb-8 transition-colors duration-200 cursor-pointer"
@@ -86,9 +80,7 @@ export default function PostDetailPage() {
         Back to posts
       </button>
 
-      {/* Article */}
       <article>
-        {/* Status */}
         <div className="mb-4">
           <span
             className={`inline-flex px-2.5 py-1 text-xs font-medium rounded-md border ${
@@ -103,35 +95,22 @@ export default function PostDetailPage() {
           </span>
         </div>
 
-        {/* Title */}
-        <h1 className="text-3xl sm:text-4xl font-extrabold text-surface-50 leading-tight mb-6">
-          {post.title}
-        </h1>
+        <h1 className="text-3xl sm:text-4xl font-extrabold text-surface-50 leading-tight mb-6">{post.title}</h1>
 
-        {/* Cover Image */}
         {post.coverImage && (
           <div className="mb-8 overflow-hidden rounded-2xl border border-surface-800 h-64 sm:h-80 w-full">
-            <img
-              src={post.coverImage}
-              alt={post.title}
-              className="w-full h-full object-cover"
-            />
+            <img src={post.coverImage} alt={post.title} className="w-full h-full object-cover" />
           </div>
         )}
 
-        {/* Meta */}
         <div className="flex flex-wrap items-center gap-4 sm:gap-6 mb-8 pb-8 border-b border-surface-800/50">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-full bg-gradient-to-br from-brand-500 to-accent-500 flex items-center justify-center">
               <User className="w-4 h-4 text-white" />
             </div>
             <div>
-              <p className="text-sm font-medium text-surface-200">
-                {authorName}
-              </p>
-              <p className="text-xs text-surface-500">
-                @{post.author.username}
-              </p>
+              <p className="text-sm font-medium text-surface-200">{authorName}</p>
+              <p className="text-xs text-surface-500">@{post.author.username}</p>
             </div>
           </div>
 
@@ -146,7 +125,6 @@ export default function PostDetailPage() {
           </div>
         </div>
 
-        {/* Tags */}
         {post.tags && post.tags.length > 0 && (
           <div className="flex flex-wrap items-center gap-2 mb-8">
             <Tag className="w-4 h-4 text-surface-500" />
@@ -161,25 +139,20 @@ export default function PostDetailPage() {
           </div>
         )}
 
-        {/* Content */}
         <div className="glass-card rounded-2xl p-6 sm:p-8">
           <div className="prose prose-invert prose-sm max-w-none">
             {post.content.split("\n").map((paragraph: string, i: number) => (
-              <p
-                key={i}
-                className="text-surface-300 leading-relaxed mb-4 last:mb-0"
-              >
+              <p key={i} className="text-surface-300 leading-relaxed mb-4 last:mb-0">
                 {paragraph}
               </p>
             ))}
           </div>
         </div>
 
-        {/* Footer */}
         {post.updatedAt && post.updatedAt !== post.createdAt && (
           <p className="text-xs text-surface-600 mt-6">
             Last updated:{" "}
-            {new Date(Number(post.updatedAt)).toLocaleDateString("en-US", {
+            {new Date(post.updatedAt).toLocaleDateString("en-US", {
               month: "short",
               day: "numeric",
               year: "numeric",

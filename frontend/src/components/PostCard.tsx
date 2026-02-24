@@ -1,5 +1,3 @@
-import {} from "react";
-
 interface PostCardProps {
   title: string;
   content: string;
@@ -31,21 +29,17 @@ export default function PostCard({
     ? `${author.firstName} ${author.lastName || ""}`
     : author.username;
 
-  const formattedDate = new Date(Number(createdAt)).toLocaleDateString(
-    "en-US",
-    {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    },
-  );
+  const formattedDate = new Date(createdAt).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
 
   return (
     <article
       onClick={onClick}
       className="glass-card bg-surface-800/80 border-surface-700/50 rounded-2xl p-6 transition-all duration-300 hover:bg-surface-700/80 hover:border-brand-500/30 hover:shadow-xl hover:shadow-brand-500/10 cursor-pointer group flex flex-col h-full"
     >
-      {/* Image Preview (if any) */}
       {coverImage && (
         <div className="mb-4 -mx-2 -mt-2 overflow-hidden rounded-xl h-40">
           <img
@@ -56,7 +50,6 @@ export default function PostCard({
         </div>
       )}
 
-      {/* Header */}
       <div className="flex items-start justify-between gap-4 mb-3">
         <h3 className="text-lg font-semibold text-surface-100 group-hover:text-brand-300 transition-colors duration-200 line-clamp-2">
           {title}
@@ -64,12 +57,10 @@ export default function PostCard({
         <StatusBadge status={status} />
       </div>
 
-      {/* Content preview */}
       <p className="text-sm text-surface-400 leading-relaxed line-clamp-3 mb-4 flex-grow">
         {content}
       </p>
 
-      {/* Tags */}
       {tags.length > 0 && (
         <div className="flex flex-wrap gap-1.5 mb-4">
           {tags.map((tag) => (
@@ -83,7 +74,6 @@ export default function PostCard({
         </div>
       )}
 
-      {/* Footer */}
       <div className="flex items-center justify-between pt-3 border-t border-surface-700/40">
         <div className="flex items-center gap-2">
           <div className="w-6 h-6 rounded-full bg-gradient-to-br from-brand-500 to-accent-500 flex items-center justify-center">

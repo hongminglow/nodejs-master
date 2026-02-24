@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Outlet, Link } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
-import { LogOut, GraduationCap, Bell } from "lucide-react";
+import { useAuth } from "../context/useAuth";
+import { LogOut, GraduationCap, Bell, FlaskConical, LayoutDashboard } from "lucide-react";
 import LiveClock from "./LiveClock";
 
 export default function Layout() {
@@ -20,36 +20,32 @@ export default function Layout() {
           setToast({ message: parsed.data.message, visible: true });
           setTimeout(() => setToast({ message: "", visible: false }), 5000);
         }
-      } catch (err) {}
+      } catch {
+        // Ignore non-json websocket payloads
+      }
     };
+
     return () => ws.close();
   }, []);
 
   return (
     <div className="min-h-dvh bg-surface-950 gradient-mesh relative">
-      {/* ── Toast Notification ─────────────────── */}
       {toast.visible && (
-        <div className="fixed top-20 right-4 sm:right-8 z-50 bg-surface-800 text-surface-50 px-5 py-4 rounded-xl shadow-2xl border border-brand-500/30 flex items-center gap-3 animate-slide-up">
+        <div className="fixed top-2 right-4 sm:right-8 z-[60] bg-surface-800 text-surface-50 px-5 py-4 rounded-xl shadow-2xl border border-brand-500/30 flex items-center gap-3 animate-slide-up">
           <div className="w-8 h-8 rounded-full bg-brand-500/20 flex items-center justify-center shrink-0">
             <Bell className="w-4 h-4 text-brand-400 animate-pulse" />
           </div>
           <div>
-            <p className="text-xs text-brand-400 font-semibold mb-0.5">
-              System Message
-            </p>
+            <p className="text-xs text-brand-400 font-semibold mb-0.5">System Message</p>
             <p className="text-sm font-medium">{toast.message}</p>
           </div>
         </div>
       )}
-      {/* ── Navbar ─────────────────────────────── */}
+
       <nav className="glass sticky top-0 z-50 border-b border-surface-800/50">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            {/* Logo */}
-            <Link
-              to="/"
-              className="flex items-center gap-2 group cursor-pointer"
-            >
+            <Link to="/" className="flex items-center gap-2 group cursor-pointer">
               <GraduationCap
                 className="w-8 h-8 text-green-500 transition-transform duration-200 group-hover:-translate-y-0.5"
                 strokeWidth={2}
@@ -59,20 +55,28 @@ export default function Layout() {
               </span>
             </Link>
 
-            {/* Nav / WebSockets Demo */}
-            <div className="hidden sm:flex items-center gap-1">
+            <div className="hidden sm:flex items-center gap-2">
+              <Link
+                to="/"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-surface-300 hover:text-surface-100 hover:bg-surface-800/70 transition-colors"
+              >
+                <LayoutDashboard className="w-3.5 h-3.5" />
+                Dashboard
+              </Link>
+              <Link
+                to="/node-lab"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-surface-300 hover:text-surface-100 hover:bg-surface-800/70 transition-colors"
+              >
+                <FlaskConical className="w-3.5 h-3.5" />
+                Node Lab
+              </Link>
               <LiveClock />
             </div>
 
-            {/* User Menu */}
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-full bg-surface-800 border border-surface-700 flex items-center justify-center text-sm font-semibold text-surface-200">
-                  {(
-                    user?.firstName?.[0] ||
-                    user?.username?.[0] ||
-                    "U"
-                  ).toUpperCase()}
+                  {(user?.firstName?.[0] || user?.username?.[0] || "U").toUpperCase()}
                 </div>
                 <span className="hidden sm:block text-sm font-medium text-surface-200">
                   {user?.firstName || user?.username}
@@ -93,7 +97,6 @@ export default function Layout() {
         </div>
       </nav>
 
-      {/* ── Main Content ───────────────────────── */}
       <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Outlet />
       </main>

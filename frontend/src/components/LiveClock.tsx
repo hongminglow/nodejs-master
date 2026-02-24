@@ -7,7 +7,6 @@ export default function LiveClock() {
 	// We're utilizing a GraphQL Subscription.
 	// This opens a WebSocket connection and listens for continuous server push events!
 	const { data, loading, error } = useSubscription<{ currentTime: string }>(CURRENT_TIME_SUBSCRIPTION);
-	console.log("lvie clock..", JSON.stringify(data, null, 2));
 	if (loading || error || !data) return null;
 
 	const dateObj = new Date(data.currentTime);

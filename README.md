@@ -73,6 +73,42 @@ The system uses a heavily decoupled client-server architecture. GraphQL allows t
 
 ---
 
+## 🧪 Node.js Showcase Features
+
+The app now includes a **Node Lab** dashboard (`/node-lab`) to demonstrate advanced Node.js behavior through GraphQL:
+
+- **Live runtime telemetry**: observe Node.js process metrics (uptime, heap/RSS, CPU, event-loop delay).
+- **Event-driven backend stream**: post create/update/delete/view actions are emitted via an internal event bus and pushed through GraphQL subscriptions.
+- **Realtime frontend visualization**: top tags, post distribution, and live activity feed update without page refresh.
+- **Auth-aware WebSocket subscriptions**: GraphQL WS connections now carry JWT context for protected realtime streams.
+
+Try these GraphQL operations in Apollo Sandbox:
+
+```graphql
+query GetRuntimeMetrics {
+	runtimeMetrics {
+		nodeVersion
+		uptimeSeconds
+		heapUsedMb
+		eventLoopDelayMs
+	}
+}
+```
+
+```graphql
+subscription PostActivity {
+	postActivity {
+		action
+		postId
+		title
+		viewCount
+		timestamp
+	}
+}
+```
+
+---
+
 ## 📚 Codebase Reference
 
 ### Backend Structure (`/backend/src`)

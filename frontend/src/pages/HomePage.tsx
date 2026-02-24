@@ -1,6 +1,6 @@
 import { useQuery } from "@apollo/client/react";
 import { useNavigate, Link } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../context/useAuth";
 import { GET_POSTS, GET_SYSTEM_INFO } from "../graphql/queries";
 import PostCard from "../components/PostCard";
 import StatsCard from "../components/StatsCard";
@@ -14,6 +14,7 @@ import {
   Server,
   Cpu,
   HardDrive,
+  FlaskConical,
 } from "lucide-react";
 import type { Post, PostsDataResponse, SystemInfo } from "../types";
 
@@ -21,28 +22,23 @@ export default function HomePage() {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  const { data, loading, error, refetch } = useQuery<PostsDataResponse>(
-    GET_POSTS,
-    {
-      variables: {
-        filter: { limit: 20, sortBy: "createdAt", sortOrder: "desc" },
-      },
+  const { data, loading, error, refetch } = useQuery<PostsDataResponse>(GET_POSTS, {
+    variables: {
+      filter: { limit: 20, sortBy: "createdAt", sortOrder: "desc" },
     },
-  );
+  });
 
   const { data: sysData } = useQuery<{ system: SystemInfo }>(GET_SYSTEM_INFO);
 
   const posts = data?.posts?.posts || [];
   const pagination = data?.posts?.pagination;
 
-  // Calculate stats
   const totalViews = posts.reduce((sum, p) => sum + p.viewCount, 0);
   const publishedCount = posts.filter((p) => p.status === "published").length;
   const uniqueAuthors = new Set(posts.map((p) => p.author.id)).size;
 
   return (
     <div className="space-y-8 animate-fade-in">
-      {/* ── Welcome Header ─────────────────────── */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-surface-50">
@@ -51,11 +47,16 @@ export default function HomePage() {
               {user?.firstName || user?.username}
             </span>
           </h1>
-          <p className="text-surface-400 mt-1">
-            Here's what's happening with your blog posts
-          </p>
+          <p className="text-surface-400 mt-1">Here's what's happening with your blog posts</p>
         </div>
         <div className="flex items-center gap-3">
+          <Link
+            to="/node-lab"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-surface-800/50 border border-surface-700/50 text-sm font-medium text-surface-300 hover:text-surface-100 hover:bg-surface-800 transition-colors duration-200 cursor-pointer"
+          >
+            <FlaskConical className="w-4 h-4" />
+            <span className="hidden sm:inline">Node Lab</span>
+          </Link>
           <button
             onClick={() => refetch()}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-surface-800/50 border border-surface-700/50 text-sm font-medium text-surface-300 hover:text-surface-100 hover:bg-surface-800 transition-colors duration-200 cursor-pointer"
@@ -73,35 +74,13 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* ── Stats Grid ─────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 stagger">
-        <StatsCard
-          label="Total Posts"
-          value={pagination?.total || 0}
-          icon={<FileText className="w-5 h-5" />}
-          color="blue"
-        />
-        <StatsCard
-          label="Published"
-          value={publishedCount}
-          icon={<TrendingUp className="w-5 h-5" />}
-          color="green"
-        />
-        <StatsCard
-          label="Total Views"
-          value={totalViews}
-          icon={<Eye className="w-5 h-5" />}
-          color="purple"
-        />
-        <StatsCard
-          label="Authors"
-          value={uniqueAuthors}
-          icon={<Users className="w-5 h-5" />}
-          color="amber"
-        />
+        <StatsCard label="Total Posts" value={pagination?.total || 0} icon={<FileText className="w-5 h-5" />} color="blue" />
+        <StatsCard label="Published" value={publishedCount} icon={<TrendingUp className="w-5 h-5" />} color="green" />
+        <StatsCard label="Total Views" value={totalViews} icon={<Eye className="w-5 h-5" />} color="purple" />
+        <StatsCard label="Authors" value={uniqueAuthors} icon={<Users className="w-5 h-5" />} color="amber" />
       </div>
 
-      {/* ── Node.js System Stats ───────────────── */}
       {sysData?.system && (
         <div className="bg-surface-900/40 rounded-2xl border border-surface-800 p-6 flex flex-wrap gap-6 items-center justify-between shadow-inner">
           <div className="flex items-center gap-3">
@@ -118,41 +97,32 @@ export default function HomePage() {
               <div className="text-surface-400 text-xs mb-1 flex items-center gap-1 justify-center">
                 <Cpu className="w-3 h-3" /> CPUs
               </div>
-              <div className="text-surface-100 font-semibold">
-                {sysData.system.cpus} Cores
-              </div>
+              <div className="text-surface-100 font-semibold">{sysData.system.cpus} Cores</div>
             </div>
             <div className="text-center">
               <div className="text-surface-400 text-xs mb-1 flex items-center gap-1 justify-center">
                 <HardDrive className="w-3 h-3" /> Memory Free
               </div>
               <div className="text-surface-100 font-semibold">
-                {Math.round(sysData.system.freeMemMB)} MB /{" "}
-                {Math.round(sysData.system.totalMemMB)} MB
+                {Math.round(sysData.system.freeMemMB)} MB / {Math.round(sysData.system.totalMemMB)} MB
               </div>
             </div>
             <div className="text-center hidden sm:block">
               <div className="text-surface-400 text-xs mb-1">Uptime</div>
-              <div className="text-surface-100 font-semibold">
-                {Math.round(sysData.system.uptimeSeconds)}s
-              </div>
+              <div className="text-surface-100 font-semibold">{Math.round(sysData.system.uptimeSeconds)}s</div>
             </div>
           </div>
         </div>
       )}
 
-      {/* ── Posts Section ──────────────────────── */}
       <div>
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-lg font-semibold text-surface-100">
-            Recent Posts
-          </h2>
+          <h2 className="text-lg font-semibold text-surface-100">Recent Posts</h2>
           <span className="text-xs font-medium text-surface-500 bg-surface-800/50 px-3 py-1 rounded-full">
             {pagination?.total || 0} total
           </span>
         </div>
 
-        {/* Loading State */}
         {loading && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {[1, 2, 3, 4].map((i) => (
@@ -177,22 +147,15 @@ export default function HomePage() {
           </div>
         )}
 
-        {/* Error State */}
         {error && (
           <div className="glass-card rounded-2xl p-8 text-center">
-            <p className="text-red-400 mb-4">
-              Failed to load posts: {error.message}
-            </p>
-            <button
-              onClick={() => refetch()}
-              className="text-sm text-brand-400 hover:text-brand-300 cursor-pointer"
-            >
+            <p className="text-red-400 mb-4">Failed to load posts: {error.message}</p>
+            <button onClick={() => refetch()} className="text-sm text-brand-400 hover:text-brand-300 cursor-pointer">
               Try again →
             </button>
           </div>
         )}
 
-        {/* Posts Grid */}
         {!loading && !error && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 stagger">
             {posts.map((post: Post) => (
@@ -212,25 +175,16 @@ export default function HomePage() {
           </div>
         )}
 
-        {/* Empty State */}
         {!loading && !error && posts.length === 0 && (
           <div className="glass-card rounded-2xl p-12 text-center">
             <div className="w-16 h-16 rounded-2xl bg-surface-800/50 flex items-center justify-center mx-auto mb-4">
               <FileText className="w-8 h-8 text-surface-500" />
             </div>
-            <h3 className="text-lg font-semibold text-surface-200 mb-2">
-              No posts yet
-            </h3>
-            <p className="text-sm text-surface-400 mb-6">
-              Create your first post using the GraphQL API or REST endpoint
-            </p>
+            <h3 className="text-lg font-semibold text-surface-200 mb-2">No posts yet</h3>
+            <p className="text-sm text-surface-400 mb-6">Create your first post using the GraphQL API or REST endpoint</p>
             <div className="bg-surface-900/50 rounded-xl p-4 max-w-sm mx-auto text-center border border-surface-800/80">
-              <p className="text-xs font-medium text-surface-500 mb-2">
-                Run in terminal:
-              </p>
-              <code className="text-xs text-brand-400 font-mono">
-                npm run seed
-              </code>
+              <p className="text-xs font-medium text-surface-500 mb-2">Run in terminal:</p>
+              <code className="text-xs text-brand-400 font-mono">npm run seed</code>
             </div>
           </div>
         )}

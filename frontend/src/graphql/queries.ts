@@ -76,6 +76,61 @@ export const GET_POSTS = gql`
   }
 `;
 
+export const GET_POST_STATS = gql`
+	query GetPostStats {
+		postStats {
+			totalPosts
+			publishedPosts
+			draftPosts
+			archivedPosts
+			totalViews
+			averageViews
+			topTags {
+				tag
+				count
+			}
+			topAuthors {
+				authorId
+				username
+				firstName
+				lastName
+				postCount
+			}
+			recentPosts {
+				id
+				title
+				status
+				viewCount
+				createdAt
+				author {
+					id
+					username
+					firstName
+					lastName
+				}
+			}
+		}
+	}
+`;
+
+export const GET_RUNTIME_METRICS = gql`
+	query GetRuntimeMetrics {
+		runtimeMetrics {
+			nodeVersion
+			platform
+			uptimeSeconds
+			rssMb
+			heapUsedMb
+			heapTotalMb
+			externalMb
+			cpuUserMs
+			cpuSystemMs
+			eventLoopDelayMs
+			timestamp
+		}
+	}
+`;
+
 export const GET_POST = gql`
   query GetPost($id: ID!) {
     post(id: $id) {
@@ -164,4 +219,36 @@ export const GET_SYSTEM_INFO = gql`
       uptimeSeconds
     }
   }
+`;
+
+export const POST_ACTIVITY_SUBSCRIPTION = gql`
+	subscription PostActivity {
+		postActivity {
+			action
+			postId
+			title
+			status
+			viewCount
+			authorUsername
+			timestamp
+		}
+	}
+`;
+
+export const RUNTIME_METRICS_SUBSCRIPTION = gql`
+	subscription RuntimeMetrics($intervalMs: Int) {
+		runtimeMetrics(intervalMs: $intervalMs) {
+			nodeVersion
+			platform
+			uptimeSeconds
+			rssMb
+			heapUsedMb
+			heapTotalMb
+			externalMb
+			cpuUserMs
+			cpuSystemMs
+			eventLoopDelayMs
+			timestamp
+		}
+	}
 `;

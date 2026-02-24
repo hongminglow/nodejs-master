@@ -70,6 +70,13 @@ class UserService {
 	 * List users with pagination, search, and sorting
 	 */
 	async listUsers({ page = 1, limit = 10, search, role, sortBy = "createdAt", sortOrder = "desc" }) {
+		const numericPage = Number(page) > 0 ? Number(page) : 1;
+		const numericLimit = Number(limit) > 0 ? Number(limit) : 10;
+		const safeSortBy = new Set(["createdAt", "username", "email", "role", "lastLoginAt"]).has(sortBy)
+			? sortBy
+			: "createdAt";
+		const safeSortOrder = String(sortOrder).toLowerCase() === "asc" ? "ASC" : "DESC";
+
 		const where = {};
 
 		// Search filter (search username, email, firstName, lastName)
@@ -77,8 +84,8 @@ class UserService {
 			where[Op.or] = [
 				{ username: { [Op.like]: `%${search}%` } },
 				{ email: { [Op.like]: `%${search}%` } },
-				{ first_name: { [Op.like]: `%${search}%` } },
-				{ last_name: { [Op.like]: `%${search}%` } },
+				{ firstName: { [Op.like]: `%${search}%` } },
+				{ lastName: { [Op.like]: `%${search}%` } },
 			];
 		}
 
@@ -89,16 +96,16 @@ class UserService {
 
 		const { rows: users, count: total } = await User.findAndCountAll({
 			where,
-			limit,
-			offset: (page - 1) * limit,
-			order: [[sortBy, sortOrder.toUpperCase()]],
+			limit: numericLimit,
+			offset: (numericPage - 1) * numericLimit,
+			order: [[safeSortBy, safeSortOrder]],
 		});
 
 		return {
 			users,
 			total,
-			page,
-			limit,
+			page: numericPage,
+			limit: numericLimit,
 		};
 	}
 

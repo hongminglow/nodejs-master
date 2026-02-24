@@ -2,20 +2,14 @@
  * ============================================
  * Server Entry Point
  * ============================================
- *
- * 📚 LEARNING NOTES:
- * - This file is the entry point of the application
- * - We separate app setup (app.js) from server startup (server.js)
- *   so we can import `app` in tests without starting the server
- * - We initialize the database before listening for requests
- * - Graceful shutdown ensures the server closes cleanly
- *
- * To start: `npm run dev` (with nodemon) or `npm start`
  */
 
 const http = require("http");
 const { ApolloServer } = require("@apollo/server");
 const { expressMiddleware } = require("@apollo/server/express4");
+const { makeExecutableSchema } = require("@graphql-tools/schema");
+const { WebSocketServer } = require("ws");
+const { useServer } = require("graphql-ws/use/ws");
 
 const { app, finalizeMiddleware } = require("./app");
 const config = require("./config");
@@ -24,41 +18,35 @@ const { sequelize } = require("./database/connection");
 const { typeDefs, resolvers } = require("./graphql");
 const { setupWebSocket } = require("./websocket");
 const { startScheduler } = require("./scheduler");
-const { authContext } = require("./middleware/auth");
+const { authContext, decodeToken } = require("./middleware/auth");
 
-const { makeExecutableSchema } = require("@graphql-tools/schema");
-const { WebSocketServer } = require("ws");
-const { useServer } = require("graphql-ws/use/ws");
-
-/**
- * Bootstrap the application
- * - Connect to the database
- * - Set up Apollo GraphQL server
- * - Set up WebSocket server
- * - Start listening for HTTP requests
- */
 async function startServer() {
   try {
-    // ── Step 1: Connect to Database ──────────────
     await sequelize.authenticate();
     logger.info("✅ Database connection established");
 
-    // Sync models to database (creates tables if they don't exist)
-    // Altering tables in SQLite often drops them and causes data loss!
     await sequelize.sync({ force: false });
     logger.info("✅ Database models synchronized");
 
-    // ── Step 2: Create HTTP Server ───────────────
     const httpServer = http.createServer(app);
-
-    // ── Step 3: Set up Apollo GraphQL Server ─────
     const schema = makeExecutableSchema({ typeDefs, resolvers });
 
-    // GraphQL Subscriptions Server
-    const wsServer = new WebSocketServer({
-      noServer: true,
-    });
-    const serverCleanup = useServer({ schema }, wsServer);
+    // GraphQL subscriptions on manual WS upgrade path (/graphql)
+    const graphqlWsServer = new WebSocketServer({ noServer: true });
+    const serverCleanup = useServer(
+      {
+        schema,
+        context: async (ctx) => {
+          const authHeader =
+            typeof ctx.connectionParams?.authorization === "string"
+              ? ctx.connectionParams.authorization
+              : null;
+          const user = decodeToken(authHeader);
+          return { user };
+        },
+      },
+      graphqlWsServer,
+    );
 
     const apolloServer = new ApolloServer({
       schema,
@@ -84,11 +72,8 @@ async function startServer() {
     });
 
     await apolloServer.start();
-    logger.info(
-      "✅ Apollo GraphQL server started with Subscriptions capability",
-    );
+    logger.info("✅ Apollo GraphQL server started with Subscriptions capability");
 
-    // Mount GraphQL HTTP
     app.use(
       "/graphql",
       expressMiddleware(apolloServer, {
@@ -96,20 +81,17 @@ async function startServer() {
       }),
     );
 
-    // Register 404 and error handlers AFTER GraphQL is mounted
     finalizeMiddleware();
 
-    // ── Step 4: Set up General WebSockets ────────
     const rawWsServer = new WebSocketServer({ noServer: true });
     setupWebSocket(rawWsServer);
 
     httpServer.on("upgrade", (request, socket, head) => {
       if (request.url === "/graphql") {
-        wsServer.handleUpgrade(request, socket, head, (ws) => {
-          wsServer.emit("connection", ws, request);
+        graphqlWsServer.handleUpgrade(request, socket, head, (ws) => {
+          graphqlWsServer.emit("connection", ws, request);
         });
       } else if (request.url === "/") {
-        // non-graphql path
         rawWsServer.handleUpgrade(request, socket, head, (ws) => {
           rawWsServer.emit("connection", ws, request);
         });
@@ -120,11 +102,9 @@ async function startServer() {
 
     logger.info("✅ Standard WebSocket server initialized on /");
 
-    // ── Step 5: Start Scheduler ──────────────────
     startScheduler();
     logger.info("✅ Job scheduler started");
 
-    // ── Step 6: Start Listening ──────────────────
     httpServer.listen(config.server.port, () => {
       logger.info(`
 ╔══════════════════════════════════════════════╗
@@ -139,7 +119,6 @@ async function startServer() {
       `);
     });
 
-    // ── Graceful Shutdown ────────────────────────
     const shutdown = async (signal) => {
       logger.info(`\n${signal} received — shutting down gracefully...`);
       httpServer.close(async () => {
@@ -157,5 +136,4 @@ async function startServer() {
   }
 }
 
-// ── Launch ──────────────────────────────────────
 startServer();

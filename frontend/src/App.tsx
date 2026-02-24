@@ -1,9 +1,10 @@
 import { Routes, Route, Navigate } from "react-router-dom";
-import { useAuth } from "./context/AuthContext";
+import { useAuth } from "./context/useAuth";
 import LoginPage from "./pages/LoginPage";
 import HomePage from "./pages/HomePage";
 import PostDetailPage from "./pages/PostDetailPage";
 import CreatePostPage from "./pages/CreatePostPage";
+import NodeLabPage from "./pages/NodeLabPage";
 import Layout from "./components/Layout";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -38,6 +39,7 @@ export default function App() {
 				<Route index element={<HomePage />} />
 				<Route path="post/:id" element={<PostDetailPage />} />
 				<Route path="create-post" element={<CreatePostPage />} />
+				<Route path="node-lab" element={<NodeLabPage />} />
 			</Route>
 			<Route path="*" element={<Navigate to="/" replace />} />
 		</Routes>
